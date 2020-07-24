@@ -8,10 +8,10 @@ import java.util.function.Consumer;
 
 public class MessageListener implements Consumer<MessageCreateEvent> {
 	
-	private final Auriel manager;
+	private final Auriel bot;
 	
-	public MessageListener(Auriel manager) {
-		this.manager = manager;
+	public MessageListener(Auriel bot) {
+		this.bot = bot;
 	}
 	
 	@Override
@@ -26,14 +26,14 @@ public class MessageListener implements Consumer<MessageCreateEvent> {
 				channel.createMessage("Pong!").block();
 				break;
 			case "!stop":
-				manager.save();
-				manager.getGateway().logout().block();
+				bot.getLadderTeamManager().save();
+				bot.getGateway().logout().block();
 				break;
 			case "!createteam":
-				manager.createTeam(argument);
+				bot.getLadderTeamManager().createTeam(argument);
 				break;
 			case "!purge":
-				manager.purge();
+				bot.getLadderTeamManager().purge();
 				break;
 			default:
 				break;

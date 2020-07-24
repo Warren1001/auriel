@@ -1,4 +1,4 @@
-package com.kabryxis.auriel;
+package com.kabryxis.auriel.ladderteam;
 
 public enum Character {
 	
