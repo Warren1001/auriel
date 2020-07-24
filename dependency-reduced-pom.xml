@@ -26,7 +26,7 @@
           <archive>
             <manifest>
               <addClasspath>true</addClasspath>
-              <mainClass>com.kabryxis.ladderteammanager.LadderTeamManager</mainClass>
+              <mainClass>com.kabryxis.auriel.Auriel</mainClass>
             </manifest>
           </archive>
         </configuration>

@@ -1,4 +1,4 @@
-package com.kabryxis.ladderteammanager;
+package com.kabryxis.auriel;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class LadderTeamManager {
+public class Auriel {
 	
 	private static final Path DATA_PATH = Paths.get("data.json");
 	
@@ -43,7 +43,7 @@ public class LadderTeamManager {
 			return;
 		}
 		
-		LadderTeamManager manager = new LadderTeamManager(token);
+		Auriel manager = new Auriel(token);
 		
 		manager.getGateway().onDisconnect().block();
 		
@@ -55,7 +55,7 @@ public class LadderTeamManager {
 	private final Gson                    gson;
 	private final Map<String, LadderTeam> ladderTeams;
 	
-	public LadderTeamManager(String token) {
+	public Auriel(String token) {
 		
 		gateway = DiscordClient.create(token).login().block();
 		guildId = Snowflake.of(735575872785874950L); // TODO make in json file

@@ -1,4 +1,4 @@
-package com.kabryxis.ladderteammanager;
+package com.kabryxis.auriel;
 
 import com.google.gson.*;
 import discord4j.common.util.Snowflake;
@@ -12,11 +12,11 @@ import java.util.Set;
 
 public class LadderTeam { // TODO channels need to have their permissions properly set
 	
-	private final LadderTeamManager manager;
-	private       String            name;
-	private final Snowflake         roleId;
-	private final Snowflake         voiceId;
-	private final Snowflake         textId;
+	private final Auriel    manager;
+	private       String    name;
+	private final Snowflake roleId;
+	private final Snowflake voiceId;
+	private final Snowflake textId;
 	
 	private int count            = 0;
 	private int countAmazon      = 0;
@@ -27,7 +27,7 @@ public class LadderTeam { // TODO channels need to have their permissions proper
 	private int countSorceress   = 0;
 	private int countDruid       = 0;
 	
-	public LadderTeam(LadderTeamManager manager, String name) {
+	public LadderTeam(Auriel manager, String name) {
 		this.manager = manager;
 		this.name = name;
 		Guild guild = manager.getGuild().block();
@@ -44,7 +44,7 @@ public class LadderTeam { // TODO channels need to have their permissions proper
 				.getId();
 	}
 	
-	public LadderTeam(LadderTeamManager manager, String name, Snowflake roleId, Snowflake voiceId, Snowflake textId) {
+	public LadderTeam(Auriel manager, String name, Snowflake roleId, Snowflake voiceId, Snowflake textId) {
 		this.manager = manager;
 		this.name = name;
 		this.roleId = roleId;
@@ -108,9 +108,9 @@ public class LadderTeam { // TODO channels need to have their permissions proper
 	
 	public static class Serializer implements JsonSerializer<LadderTeam>, JsonDeserializer<LadderTeam> {
 		
-		private final LadderTeamManager manager;
+		private final Auriel manager;
 		
-		public Serializer(LadderTeamManager manager) {
+		public Serializer(Auriel manager) {
 			this.manager = manager;
 		}
 		

@@ -1,4 +1,4 @@
-package com.kabryxis.ladderteammanager;
+package com.kabryxis.auriel;
 
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.object.entity.Message;
@@ -8,18 +8,18 @@ import java.util.function.Consumer;
 
 public class MessageListener implements Consumer<MessageCreateEvent> {
 	
-	private final LadderTeamManager manager;
+	private final Auriel manager;
 	
-	public MessageListener(LadderTeamManager manager) {
+	public MessageListener(Auriel manager) {
 		this.manager = manager;
 	}
 	
 	@Override
 	public void accept(MessageCreateEvent event) { // TODO eventually overhaul
-		Message message  = event.getMessage();
-		String[]  args = message.getContent().split(" ", 2);
-		String command = args[0].toLowerCase();
-		String argument = args.length == 2 ? args[1] : null;
+		Message  message  = event.getMessage();
+		String[] args     = message.getContent().split(" ", 2);
+		String   command  = args[0].toLowerCase();
+		String   argument = args.length == 2 ? args[1] : null;
 		switch (command) {
 			case "!ping":
 				MessageChannel channel = message.getChannel().block();
