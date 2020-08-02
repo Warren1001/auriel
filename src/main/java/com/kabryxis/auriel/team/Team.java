@@ -1,4 +1,4 @@
-package com.kabryxis.auriel.ladderteam;
+package com.kabryxis.auriel.team;
 
 import com.google.gson.*;
 import discord4j.common.util.Snowflake;
@@ -7,16 +7,18 @@ import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.channel.TextChannel;
 import discord4j.core.object.entity.channel.VoiceChannel;
 
-import java.lang.reflect.Type;
 import java.util.Set;
 
-public class LadderTeam { // TODO channels need to have their permissions properly set
+public class Team { // TODO channels need to have their permissions properly set
 	
-	private final LadderTeamManager manager;
-	private       String            name;
-	private final Snowflake         roleId;
-	private final Snowflake         voiceId;
-	private final Snowflake         textId;
+	private final TeamManager manager;
+	private final Realm       realm;
+	private final Core        core;
+	private final Type        type;
+	private       String      name;
+	private final Snowflake   roleId;
+	private final Snowflake   voiceId;
+	private final Snowflake   textId;
 	
 	private int count            = 0;
 	private int countAmazon      = 0;
@@ -27,14 +29,17 @@ public class LadderTeam { // TODO channels need to have their permissions proper
 	private int countSorceress   = 0;
 	private int countDruid       = 0;
 	
-	public LadderTeam(LadderTeamManager manager, String name) {
+	public Team(TeamManager manager, String name, Realm realm, Core core, Type type) {
 		this.manager = manager;
+		this.realm = realm;
+		this.core = core;
+		this.type = type;
 		this.name = name;
 		Guild guild = manager.getGuild().block();
-		this.roleId = guild.createRole(
-				spec -> spec.setName(name).setPermissions(guild.getEveryoneRole().block().getPermissions()).setHoist(false).setMentionable(false))
-				.block()
-				.getId();
+		this.roleId = guild.createRole(spec -> spec.setName(name)
+				.setPermissions(guild.getEveryoneRole().block().getPermissions())
+				.setHoist(false)
+				.setMentionable(false)).block().getId();
 		Set<PermissionOverwrite> perms = manager.getHiddenChannelPermissions(roleId);
 		this.voiceId = guild.createVoiceChannel(spec -> spec.setPermissionOverwrites(perms).setParentId(manager.getCategoryId()).setName(name))
 				.block()
@@ -44,12 +49,19 @@ public class LadderTeam { // TODO channels need to have their permissions proper
 				.getId();
 	}
 	
-	public LadderTeam(LadderTeamManager manager, String name, Snowflake roleId, Snowflake voiceId, Snowflake textId) {
+	public Team(TeamManager manager, String name, Realm realm, Core core, Type type, Snowflake roleId, Snowflake voiceId, Snowflake textId) {
 		this.manager = manager;
+		this.realm = realm;
+		this.core = core;
+		this.type = type;
 		this.name = name;
 		this.roleId = roleId;
 		this.voiceId = voiceId;
 		this.textId = textId;
+	}
+	
+	public Team(TeamManager manager, String name, TeamContext context) {
+		this(manager, name, context.getRealm(), context.getCore(), context.getType());
 	}
 	
 	public Snowflake getRoleId() {
@@ -64,28 +76,35 @@ public class LadderTeam { // TODO channels need to have their permissions proper
 		return textId;
 	}
 	
-	public boolean isFull() {
-		return count == 8;
+	public boolean hasSpace() {
+		return count < 8;
 	}
 	
-	public boolean isCharacterFull(Character character) {
+	public boolean hasCharacterSpace(Hero character) {
 		switch (character) {
 			case AMAZON:
-				return countAmazon == Character.AMAZON.getRecommendedMaxAmount();
+				return countAmazon < Hero.AMAZON.getRecommendedMaxAmount();
 			case ASSASSIN:
-				return countAssassin == Character.ASSASSIN.getRecommendedMaxAmount();
+				return countAssassin < Hero.ASSASSIN.getRecommendedMaxAmount();
 			case NECROMANCER:
-				return countNecromancer == Character.NECROMANCER.getRecommendedMaxAmount();
+				return countNecromancer < Hero.NECROMANCER.getRecommendedMaxAmount();
 			case BARBARIAN:
-				return countBarbarian == Character.BARBARIAN.getRecommendedMaxAmount();
+				return countBarbarian < Hero.BARBARIAN.getRecommendedMaxAmount();
 			case PALADIN:
-				return countPaladin == Character.PALADIN.getRecommendedMaxAmount();
+				return countPaladin < Hero.PALADIN.getRecommendedMaxAmount();
 			case SORCERESS:
-				return countSorceress == Character.SORCERESS.getRecommendedMaxAmount();
+				return countSorceress < Hero.SORCERESS.getRecommendedMaxAmount();
 			case DRUID:
-				return countDruid == Character.DRUID.getRecommendedMaxAmount();
+				return countDruid < Hero.DRUID.getRecommendedMaxAmount();
 			default:
-				return true;
+				return false;
+		}
+	}
+	
+	public void addJoinContext(TeamContext context) {
+		if (hasSpace() && context.getRealm() == realm && context.getCore() == core && context.getType() == type) {
+			context.getPreferredChars().stream().filter(this::hasCharacterSpace).forEachOrdered(c -> context.addPreferredTeam(c, this));
+			context.getOptionalChars().stream().filter(this::hasCharacterSpace).forEachOrdered(c -> context.addOptionalTeam(c, this));
 		}
 	}
 	
@@ -97,25 +116,32 @@ public class LadderTeam { // TODO channels need to have their permissions proper
 		((TextChannel)guild.getChannelById(textId).block()).edit(spec -> spec.setName(name.replace(' ', '-').toLowerCase())).block();
 	}
 	
-	@Override
-	public String toString() {
-		return String.format("LadderTeam[name=%s]", name);
+	public void join(Snowflake userId) {
+	
 	}
 	
-	public static class Serializer implements JsonSerializer<LadderTeam>, JsonDeserializer<LadderTeam> {
+	@Override
+	public String toString() {
+		return String.format("Team[name=%s]", name);
+	}
+	
+	public static class Serializer implements JsonSerializer<Team>, JsonDeserializer<Team> {
 		
-		private final LadderTeamManager manager;
+		private final TeamManager manager;
 		
-		public Serializer(LadderTeamManager manager) {
+		public Serializer(TeamManager manager) {
 			this.manager = manager;
 		}
 		
 		@Override
-		public JsonElement serialize(LadderTeam team, Type typeOfSrc, JsonSerializationContext context) {
+		public JsonElement serialize(Team team, java.lang.reflect.Type typeOfSrc, JsonSerializationContext context) {
 			
 			JsonObject json = new JsonObject();
 			
 			json.addProperty("name", team.name);
+			json.addProperty("realm", team.realm.ordinal());
+			json.addProperty("core", team.core.ordinal());
+			json.addProperty("type", team.type.ordinal());
 			json.addProperty("role", team.roleId.asLong());
 			json.addProperty("voice", team.voiceId.asLong());
 			json.addProperty("text", team.textId.asLong());
@@ -133,15 +159,18 @@ public class LadderTeam { // TODO channels need to have their permissions proper
 		}
 		
 		@Override
-		public LadderTeam deserialize(JsonElement src, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
+		public Team deserialize(JsonElement src, java.lang.reflect.Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
 			
 			JsonObject json = (JsonObject)src;
 			
-			String     name    = json.get("name").getAsString();
-			Snowflake  roleId  = Snowflake.of(json.get("role").getAsLong());
-			Snowflake  voiceId = Snowflake.of(json.get("voice").getAsLong());
-			Snowflake  textId  = Snowflake.of(json.get("text").getAsLong());
-			LadderTeam team    = new LadderTeam(manager, name, roleId, voiceId, textId);
+			String    name    = json.get("name").getAsString();
+			Realm     realm   = Realm.values()[json.get("realm").getAsInt()];
+			Core      core    = Core.values()[json.get("core").getAsInt()];
+			Type      type    = Type.values()[json.get("type").getAsInt()];
+			Snowflake roleId  = Snowflake.of(json.get("role").getAsLong());
+			Snowflake voiceId = Snowflake.of(json.get("voice").getAsLong());
+			Snowflake textId  = Snowflake.of(json.get("text").getAsLong());
+			Team      team    = new Team(manager, name, realm, core, type, roleId, voiceId, textId);
 			
 			if (json.has("count")) team.count = json.get("count").getAsInt();
 			if (json.has("countz")) team.countAmazon = json.get("countz").getAsInt();

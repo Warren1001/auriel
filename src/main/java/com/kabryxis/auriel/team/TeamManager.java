@@ -1,4 +1,4 @@
-package com.kabryxis.auriel.ladderteam;
+package com.kabryxis.auriel.team;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -16,28 +16,25 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
-public class LadderTeamManager {
+public class TeamManager {
 	
 	private static final Path DATA_PATH = Paths.get("data.json");
 	
-	private final Auriel                  bot;
-	private final Snowflake               guildId;
-	private final Snowflake               categoryId;
-	private final Gson                    gson;
-	private final Map<String, LadderTeam> ladderTeams;
+	private final Auriel    bot;
+	private final Snowflake guildId;
+	private final Snowflake categoryId;
+	private final Gson      gson;
+	private final Set<Team> ladderTeams;
 	
-	public LadderTeamManager(Auriel bot) {
+	public TeamManager(Auriel bot) {
 		this.bot = bot;
 		guildId = Snowflake.of(735575872785874950L); // TODO make in json file
 		categoryId = Snowflake.of(735656522142580789L); // TODO ^
-		gson = new GsonBuilder().registerTypeAdapter(LadderTeam.class, new LadderTeam.Serializer(this)).setPrettyPrinting().create();
-		ladderTeams = Collections.synchronizedMap(loadData());
+		gson = new GsonBuilder().registerTypeAdapter(Team.class, new Team.Serializer(this)).setPrettyPrinting().create();
+		ladderTeams = Collections.synchronizedSet(loadData());
 	}
 	
 	public Mono<Guild> getGuild() {
@@ -48,8 +45,15 @@ public class LadderTeamManager {
 		return categoryId;
 	}
 	
-	public LadderTeam createTeam(String name) {
-		return ladderTeams.computeIfAbsent(name, n -> new LadderTeam(this, n));
+	public Team createTeam(TeamContext context) {
+		Team team = new Team(this, null, context); // TODO give name
+		ladderTeams.add(team);
+		return team;
+	}
+	
+	public void joinTeam(TeamContext context) {
+		ladderTeams.forEach(team -> team.addJoinContext(context));
+		context.getTeamToJoin().orElse(createTeam(context)).join(context.getUserId());
 	}
 	
 	public Set<PermissionOverwrite> getHiddenChannelPermissions(Snowflake ignoreRoleId) {
@@ -70,18 +74,18 @@ public class LadderTeamManager {
 		}
 	}
 	
-	private Map<String, LadderTeam> loadData() {
+	private Set<Team> loadData() {
 		try {
-			return gson.fromJson(new String(Files.readAllBytes(DATA_PATH)), new TypeToken<Map<String, LadderTeam>>() {}.getType());
+			return gson.fromJson(new String(Files.readAllBytes(DATA_PATH)), new TypeToken<Set<Team>>() {}.getType());
 		} catch (IOException e) {
-			if (e instanceof NoSuchFileException) return new HashMap<>();
+			if (e instanceof NoSuchFileException) return new HashSet<>();
 			throw new RuntimeException(e);
 		}
 	}
 	
 	public void purge() {
 		Guild guild = getGuild().block();
-		ladderTeams.values().forEach(team -> {
+		ladderTeams.forEach(team -> {
 			guild.getRoleById(team.getRoleId()).block().delete("Purged").block();
 			guild.getChannelById(team.getVoiceId()).block().delete("Purged").block();
 			guild.getChannelById(team.getTextId()).block().delete("Purged").block();

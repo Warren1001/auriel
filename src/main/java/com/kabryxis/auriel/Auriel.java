@@ -1,6 +1,7 @@
 package com.kabryxis.auriel;
 
-import com.kabryxis.auriel.ladderteam.LadderTeamManager;
+import com.kabryxis.auriel.team.TeamManager;
+import com.kabryxis.auriel.page.PagedEmbedManager;
 import discord4j.core.DiscordClient;
 import discord4j.core.GatewayDiscordClient;
 import discord4j.core.event.domain.message.MessageCreateEvent;
@@ -33,15 +34,17 @@ public class Auriel {
 	}
 	
 	private final GatewayDiscordClient gateway;
-	private       LadderTeamManager    teamManager;
+	private       TeamManager          teamManager;
+	private       PagedEmbedManager    embedManager;
 	
 	public Auriel(String token) {
 		
 		gateway = DiscordClient.create(token).login().block();
 		
-		gateway.on(MessageCreateEvent.class).subscribe(new MessageListener(this));
+		gateway.on(MessageCreateEvent.class).doOnError(Throwable::printStackTrace).subscribe(new MessageListener(this));
 		
-		teamManager = new LadderTeamManager(this);
+		teamManager = new TeamManager(this);
+		embedManager = new PagedEmbedManager(this);
 		
 	}
 	
@@ -49,8 +52,12 @@ public class Auriel {
 		return gateway;
 	}
 	
-	public LadderTeamManager getLadderTeamManager() {
+	public TeamManager getLadderTeamManager() {
 		return teamManager;
+	}
+	
+	public PagedEmbedManager getEmbedManager() {
+		return embedManager;
 	}
 	
 }
