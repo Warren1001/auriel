@@ -13,17 +13,15 @@ public class TeamContext {
 		return new Builder(Objects.requireNonNull(userId, "userId cannot be null"));
 	}
 	
-	private final Snowflake  userId;
-	private final Realm      realm;
-	private final Core       core;
-	private final Type       type;
-	private final List<Hero> preferredChars;
-	private final Team[]     preferredTeams;
-	private final List<Hero> optionalChars;
-	private final Team[]     optionalTeams;
+	private final Snowflake    userId;
+	private final Ladder.Realm realm;
+	private final Ladder.Core  core;
+	private final Ladder.Type  type;
+	private final List<Hero>   preferredChars;
+	private final Team[]       preferredTeams;
 	
-	public TeamContext(@NotNull Snowflake userId, @NotNull Realm realm, @NotNull Core core, @NotNull Type type, @NotNull List<Hero> preferredChars,
-			@NotNull List<Hero> optionalChars) {
+	public TeamContext(@NotNull Snowflake userId, @NotNull Ladder.Realm realm, @NotNull Ladder.Core core, @NotNull Ladder.Type type,
+			@NotNull List<Hero> preferredChars) {
 		this.userId = Objects.requireNonNull(userId, "userId cannot be null");
 		this.realm = Objects.requireNonNull(realm, "realm cannot be null");
 		this.core = Objects.requireNonNull(core, "core cannot be null");
@@ -31,8 +29,6 @@ public class TeamContext {
 		Validate.notEmpty(preferredChars, "preferredChars cannot be empty");
 		this.preferredChars = Objects.requireNonNull(preferredChars, "preferredChars cannot be null");
 		this.preferredTeams = new Team[preferredChars.size()];
-		this.optionalChars = Objects.requireNonNull(optionalChars, "optionalChars cannot be null");
-		this.optionalTeams = new Team[optionalChars.size()];
 	}
 	
 	@NotNull
@@ -41,28 +37,23 @@ public class TeamContext {
 	}
 	
 	@NotNull
-	public Realm getRealm() {
+	public Ladder.Realm getRealm() {
 		return realm;
 	}
 	
 	@NotNull
-	public Core getCore() {
+	public Ladder.Core getCore() {
 		return core;
 	}
 	
 	@NotNull
-	public Type getType() {
+	public Ladder.Type getType() {
 		return type;
 	}
 	
 	@NotNull
 	public List<Hero> getPreferredChars() {
 		return preferredChars;
-	}
-	
-	@NotNull
-	public List<Hero> getOptionalChars() {
-		return optionalChars;
 	}
 	
 	public void addPreferredTeam(@NotNull Hero hero, @NotNull Team team) {
@@ -75,22 +66,9 @@ public class TeamContext {
 		if (preferredTeams[index] == null) preferredTeams[index] = team;
 	}
 	
-	public void addOptionalTeam(@NotNull Hero hero, @NotNull Team team) {
-		Validate.notNull(hero, "hero cannot be null");
-		Validate.notNull(team, "team cannot be null");
-		int index = 0;
-		while (optionalChars.get(index) != hero) {
-			index++;
-		}
-		if (optionalTeams[index] == null) optionalTeams[index] = team;
-	}
-	
 	@NotNull
 	public Optional<Team> getTeamToJoin() {
 		for (Team team : preferredTeams) {
-			if (team != null) return Optional.of(team);
-		}
-		for (Team team : optionalTeams) {
 			if (team != null) return Optional.of(team);
 		}
 		return Optional.empty();
@@ -104,64 +82,54 @@ public class TeamContext {
 			this.userId = userId;
 		}
 		
-		private Realm realm = null;
+		private Ladder.Realm realm = null;
 		
 		@NotNull
-		public Builder realm(@NotNull Realm realm) {
+		public Builder realm(@NotNull Ladder.Realm realm) {
 			this.realm = Objects.requireNonNull(realm, "realm cannot be null");
 			return this;
 		}
 		
-		private Core core = null;
+		private Ladder.Core core = null;
 		
 		@NotNull
-		public Builder core(@NotNull Core core) {
+		public Builder core(@NotNull Ladder.Core core) {
 			this.core = Objects.requireNonNull(core, "core cannot be null");
 			return this;
 		}
 		
-		private Type type = Type.EXPANSION;
+		private Ladder.Type type = Ladder.Type.EXPANSION;
 		
 		@NotNull
-		public Builder type(@NotNull Type type) {
+		public Builder type(@NotNull Ladder.Type type) {
 			this.type = Objects.requireNonNull(type, "type cannot be null");
 			return this;
 		}
 		
-		private final List<Hero> preferredChars = new ArrayList<>();
+		private final List<Hero> heroes = new ArrayList<>();
 		
 		@NotNull
-		public Builder preferredChar(@NotNull Hero hero) {
-			preferredChars.add(Objects.requireNonNull(hero, "hero cannot be null"));
+		public Builder hero(@NotNull Hero hero) {
+			heroes.add(Objects.requireNonNull(hero, "hero cannot be null"));
 			return this;
 		}
 		
 		@NotNull
-		public Builder preferredChar(@NotNull Hero... heroes) {
-			preferredChars.addAll(Arrays.asList(Objects.requireNonNull(heroes, "heroes cannot be null")));
+		public Builder heroes(@NotNull Hero... heroes) {
+			this.heroes.addAll(Arrays.asList(Objects.requireNonNull(heroes, "heroes cannot be null")));
 			return this;
 		}
 		
-		private final List<Hero> optionalChars = new ArrayList<>();
-		
-		@NotNull
-		public Builder optionalChar(@NotNull Hero hero) {
-			optionalChars.add(Objects.requireNonNull(hero, "hero cannot be null"));
-			return this;
-		}
-		
-		@NotNull
-		public Builder optionalChar(@NotNull Hero... heroes) {
-			optionalChars.addAll(Arrays.asList(Objects.requireNonNull(heroes, "heroes cannot be null")));
-			return this;
+		public void clearHeroes() {
+			heroes.clear();
 		}
 		
 		@NotNull
 		public TeamContext build() {
 			Validate.notNull(realm, "Realm cannot be null");
 			Validate.notNull(core, "Core cannot be null");
-			Validate.isTrue(!preferredChars.isEmpty(), "There must be at least one preferred character.");
-			return new TeamContext(userId, realm, core, type, preferredChars, optionalChars);
+			Validate.isTrue(!heroes.isEmpty(), "There must be at least one character selected.");
+			return new TeamContext(userId, realm, core, type, heroes);
 		}
 		
 	}

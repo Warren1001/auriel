@@ -11,14 +11,14 @@ import java.util.Set;
 
 public class Team { // TODO channels need to have their permissions properly set
 	
-	private final TeamManager manager;
-	private final Realm       realm;
-	private final Core        core;
-	private final Type        type;
-	private       String      name;
-	private final Snowflake   roleId;
-	private final Snowflake   voiceId;
-	private final Snowflake   textId;
+	private final TeamManager  manager;
+	private final Ladder.Realm realm;
+	private final Ladder.Core  core;
+	private final Ladder.Type  type;
+	private       String       name;
+	private final Snowflake    roleId;
+	private final Snowflake    voiceId;
+	private final Snowflake    textId;
 	
 	private int count            = 0;
 	private int countAmazon      = 0;
@@ -29,7 +29,7 @@ public class Team { // TODO channels need to have their permissions properly set
 	private int countSorceress   = 0;
 	private int countDruid       = 0;
 	
-	public Team(TeamManager manager, String name, Realm realm, Core core, Type type) {
+	public Team(TeamManager manager, String name, Ladder.Realm realm, Ladder.Core core, Ladder.Type type) {
 		this.manager = manager;
 		this.realm = realm;
 		this.core = core;
@@ -49,7 +49,8 @@ public class Team { // TODO channels need to have their permissions properly set
 				.getId();
 	}
 	
-	public Team(TeamManager manager, String name, Realm realm, Core core, Type type, Snowflake roleId, Snowflake voiceId, Snowflake textId) {
+	public Team(TeamManager manager, String name, Ladder.Realm realm, Ladder.Core core, Ladder.Type type, Snowflake roleId, Snowflake voiceId,
+			Snowflake textId) {
 		this.manager = manager;
 		this.realm = realm;
 		this.core = core;
@@ -104,7 +105,6 @@ public class Team { // TODO channels need to have their permissions properly set
 	public void addJoinContext(TeamContext context) {
 		if (hasSpace() && context.getRealm() == realm && context.getCore() == core && context.getType() == type) {
 			context.getPreferredChars().stream().filter(this::hasCharacterSpace).forEachOrdered(c -> context.addPreferredTeam(c, this));
-			context.getOptionalChars().stream().filter(this::hasCharacterSpace).forEachOrdered(c -> context.addOptionalTeam(c, this));
 		}
 	}
 	
@@ -117,7 +117,11 @@ public class Team { // TODO channels need to have their permissions properly set
 	}
 	
 	public void join(Snowflake userId) {
+		manager.getGuild().block().getMemberById(userId).block().addRole(roleId).block();
+	}
 	
+	public void leave(Snowflake userId) {
+		manager.getGuild().block().getMemberById(userId).block().removeRole(roleId).block();
 	}
 	
 	@Override
@@ -139,9 +143,9 @@ public class Team { // TODO channels need to have their permissions properly set
 			JsonObject json = new JsonObject();
 			
 			json.addProperty("name", team.name);
-			json.addProperty("realm", team.realm.ordinal());
-			json.addProperty("core", team.core.ordinal());
-			json.addProperty("type", team.type.ordinal());
+			json.addProperty("realm", team.realm.name());
+			json.addProperty("core", team.core.name());
+			json.addProperty("type", team.type.name());
 			json.addProperty("role", team.roleId.asLong());
 			json.addProperty("voice", team.voiceId.asLong());
 			json.addProperty("text", team.textId.asLong());
@@ -163,14 +167,14 @@ public class Team { // TODO channels need to have their permissions properly set
 			
 			JsonObject json = (JsonObject)src;
 			
-			String    name    = json.get("name").getAsString();
-			Realm     realm   = Realm.values()[json.get("realm").getAsInt()];
-			Core      core    = Core.values()[json.get("core").getAsInt()];
-			Type      type    = Type.values()[json.get("type").getAsInt()];
-			Snowflake roleId  = Snowflake.of(json.get("role").getAsLong());
-			Snowflake voiceId = Snowflake.of(json.get("voice").getAsLong());
-			Snowflake textId  = Snowflake.of(json.get("text").getAsLong());
-			Team      team    = new Team(manager, name, realm, core, type, roleId, voiceId, textId);
+			String       name    = json.get("name").getAsString();
+			Ladder.Realm realm   = Ladder.Realm.valueOf(json.get("realm").getAsString());
+			Ladder.Core  core    = Ladder.Core.valueOf(json.get("core").getAsString());
+			Ladder.Type  type    = Ladder.Type.valueOf(json.get("type").getAsString());
+			Snowflake    roleId  = Snowflake.of(json.get("role").getAsLong());
+			Snowflake    voiceId = Snowflake.of(json.get("voice").getAsLong());
+			Snowflake    textId  = Snowflake.of(json.get("text").getAsLong());
+			Team         team    = new Team(manager, name, realm, core, type, roleId, voiceId, textId);
 			
 			if (json.has("count")) team.count = json.get("count").getAsInt();
 			if (json.has("countz")) team.countAmazon = json.get("countz").getAsInt();

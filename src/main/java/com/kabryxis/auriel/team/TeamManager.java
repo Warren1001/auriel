@@ -27,14 +27,14 @@ public class TeamManager {
 	private final Snowflake guildId;
 	private final Snowflake categoryId;
 	private final Gson      gson;
-	private final Set<Team> ladderTeams;
+	private final Set<Team> teams;
 	
 	public TeamManager(Auriel bot) {
 		this.bot = bot;
 		guildId = Snowflake.of(735575872785874950L); // TODO make in json file
-		categoryId = Snowflake.of(735656522142580789L); // TODO ^
+		categoryId = Snowflake.of(735656522142580789L); // TODO make in json file
 		gson = new GsonBuilder().registerTypeAdapter(Team.class, new Team.Serializer(this)).setPrettyPrinting().create();
-		ladderTeams = Collections.synchronizedSet(loadData());
+		teams = Collections.synchronizedSet(loadData());
 	}
 	
 	public Mono<Guild> getGuild() {
@@ -46,13 +46,13 @@ public class TeamManager {
 	}
 	
 	public Team createTeam(TeamContext context) {
-		Team team = new Team(this, null, context); // TODO give name
-		ladderTeams.add(team);
+		Team team = new Team(this, "Team " + (teams.size() + 1), context);
+		teams.add(team);
 		return team;
 	}
 	
 	public void joinTeam(TeamContext context) {
-		ladderTeams.forEach(team -> team.addJoinContext(context));
+		teams.forEach(team -> team.addJoinContext(context));
 		context.getTeamToJoin().orElse(createTeam(context)).join(context.getUserId());
 	}
 	
@@ -66,9 +66,9 @@ public class TeamManager {
 	}
 	
 	public void save() {
-		if (ladderTeams.isEmpty()) return;
+		if (teams.isEmpty()) return;
 		try {
-			Files.write(DATA_PATH, gson.toJson(ladderTeams).getBytes());
+			Files.write(DATA_PATH, gson.toJson(teams).getBytes());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -85,12 +85,12 @@ public class TeamManager {
 	
 	public void purge() {
 		Guild guild = getGuild().block();
-		ladderTeams.forEach(team -> {
+		teams.forEach(team -> {
 			guild.getRoleById(team.getRoleId()).block().delete("Purged").block();
 			guild.getChannelById(team.getVoiceId()).block().delete("Purged").block();
 			guild.getChannelById(team.getTextId()).block().delete("Purged").block();
 		});
-		ladderTeams.clear();
+		teams.clear();
 		if (DATA_PATH.toFile().exists()) {
 			try {
 				Files.delete(DATA_PATH);

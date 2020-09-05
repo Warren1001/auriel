@@ -5,9 +5,10 @@ import discord4j.core.object.entity.Message;
 import discord4j.core.spec.EmbedCreateSpec;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-public class PagedEmbed implements Consumer<EmbedCreateSpec> {
+public class PagedEmbed {
 	
 	private final List<Page> pages;
 	
@@ -20,15 +21,9 @@ public class PagedEmbed implements Consumer<EmbedCreateSpec> {
 		updatePage();
 	}
 	
-	@Override
-	public void accept(EmbedCreateSpec spec) {
-		currentPage.accept(spec);
-		if (message != null) currentPage.getDefaultReactions().forEach(emoji -> message.addReaction(emoji).block());
-	}
-	
-	void setMessage(Message message) {
-		this.message = message;
-		currentPage.getDefaultReactions().forEach(emoji -> message.addReaction(emoji).block());
+	PagedEmbed(List<Page> pages, BiConsumer<? super PagedEmbed, ? super ReactionAddEvent> finishAction) {
+		this.pages = pages;
+		updatePage();
 	}
 	
 	public boolean previousPage() {
@@ -37,7 +32,7 @@ public class PagedEmbed implements Consumer<EmbedCreateSpec> {
 			currentPageIndex--;
 			updatePage();
 			message.removeAllReactions().block();
-			message.edit(spec -> spec.setEmbed(this)).block();
+			message.edit(spec -> spec.setEmbed(getView())).block();
 		}
 		return b;
 	}
@@ -48,9 +43,26 @@ public class PagedEmbed implements Consumer<EmbedCreateSpec> {
 			currentPageIndex++;
 			updatePage();
 			message.removeAllReactions().block();
-			message.edit(spec -> spec.setEmbed(this)).block();
+			message.edit(spec -> spec.setEmbed(getView())).block();
 		}
 		return b;
+	}
+	
+	public void delete() {
+		if (message != null) message.delete().block();
+	}
+	
+	Consumer<? super EmbedCreateSpec> getView() {
+		return currentPage.getPageCreator();
+	}
+	
+	void setMessage(Message message) {
+		this.message = message;
+		addPageReactions();
+	}
+	
+	void addPageReactions() {
+		currentPage.getDefaultReactions().forEach(emoji -> message.addReaction(emoji).block());
 	}
 	
 	void onReact(ReactionAddEvent event) {

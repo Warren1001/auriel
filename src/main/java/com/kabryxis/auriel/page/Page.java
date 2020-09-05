@@ -8,7 +8,7 @@ import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-public class Page implements Consumer<EmbedCreateSpec> {
+public class Page {
 	
 	public static Builder builder() {
 		return new Builder();
@@ -36,9 +36,8 @@ public class Page implements Consumer<EmbedCreateSpec> {
 		return reactionEmojiOrder;
 	}
 	
-	@Override
-	public void accept(EmbedCreateSpec spec) {
-		pageSupplier.accept(spec);
+	Consumer<? super EmbedCreateSpec> getPageCreator() {
+		return pageSupplier;
 	}
 	
 	public static class Builder {
@@ -57,6 +56,31 @@ public class Page implements Consumer<EmbedCreateSpec> {
 			reactionActions.computeIfAbsent(emoji, ignore -> new HashSet<>()).add(action);
 			reactionEmojiOrder.add(emoji);
 			return this;
+		}
+		
+		public Builder addReactionAction(ReactionEmoji emoji, Consumer<? super ReactionAddEvent> action) {
+			return addReactionAction(emoji, (embed, event) -> action.accept(event));
+		}
+		
+		public Builder addReactionActionPrevious(ReactionEmoji emoji, Consumer<? super ReactionAddEvent> action) {
+			return addReactionAction(emoji, (embed, event) -> {
+				embed.previousPage();
+				action.accept(event);
+			});
+		}
+		
+		public Builder addReactionActionNext(ReactionEmoji emoji, Consumer<? super ReactionAddEvent> action) {
+			return addReactionAction(emoji, (embed, event) -> {
+				embed.nextPage();
+				action.accept(event);
+			});
+		}
+		
+		public Builder addReactionActionDelete(ReactionEmoji emoji, Consumer<? super ReactionAddEvent> action) {
+			return addReactionAction(emoji, (embed, event) -> {
+				embed.delete();
+				action.accept(event);
+			});
 		}
 		
 		public Builder addDefaultNextAction() {
