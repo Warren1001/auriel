@@ -18,7 +18,6 @@ public class TeamContext {
 	private final Ladder.Core  core;
 	private final Ladder.Type  type;
 	private final List<Hero>   preferredChars;
-	private final Team[]       preferredTeams;
 	
 	public TeamContext(@NotNull Snowflake userId, @NotNull Ladder.Realm realm, @NotNull Ladder.Core core, @NotNull Ladder.Type type,
 			@NotNull List<Hero> preferredChars) {
@@ -28,7 +27,6 @@ public class TeamContext {
 		this.type = Objects.requireNonNull(type, "type cannot be null");
 		Validate.notEmpty(preferredChars, "preferredChars cannot be empty");
 		this.preferredChars = Objects.requireNonNull(preferredChars, "preferredChars cannot be null");
-		this.preferredTeams = new Team[preferredChars.size()];
 	}
 	
 	@NotNull
@@ -54,24 +52,6 @@ public class TeamContext {
 	@NotNull
 	public List<Hero> getPreferredChars() {
 		return preferredChars;
-	}
-	
-	public void addPreferredTeam(@NotNull Hero hero, @NotNull Team team) {
-		Validate.notNull(hero, "hero cannot be null");
-		Validate.notNull(team, "team cannot be null");
-		int index = 0;
-		while (preferredChars.get(index) != hero) {
-			index++;
-		}
-		if (preferredTeams[index] == null) preferredTeams[index] = team;
-	}
-	
-	@NotNull
-	public Optional<Team> getTeamToJoin() {
-		for (Team team : preferredTeams) {
-			if (team != null) return Optional.of(team);
-		}
-		return Optional.empty();
 	}
 	
 	public static class Builder {

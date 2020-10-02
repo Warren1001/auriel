@@ -3,10 +3,11 @@ package com.kabryxis.auriel.page;
 import discord4j.core.event.domain.message.ReactionAddEvent;
 import discord4j.core.object.entity.Message;
 import discord4j.core.spec.EmbedCreateSpec;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class PagedEmbed {
 	
@@ -21,18 +22,12 @@ public class PagedEmbed {
 		updatePage();
 	}
 	
-	PagedEmbed(List<Page> pages, BiConsumer<? super PagedEmbed, ? super ReactionAddEvent> finishAction) {
-		this.pages = pages;
-		updatePage();
-	}
-	
 	public boolean previousPage() {
 		boolean b = currentPageIndex > 0;
 		if (b) {
 			currentPageIndex--;
 			updatePage();
-			message.removeAllReactions().block();
-			message.edit(spec -> spec.setEmbed(getView())).block();
+			Flux.concat(message.removeAllReactions(), message.edit(spec -> spec.setEmbed(getView()))).subscribe();
 		}
 		return b;
 	}
@@ -42,14 +37,13 @@ public class PagedEmbed {
 		if (b) {
 			currentPageIndex++;
 			updatePage();
-			message.removeAllReactions().block();
-			message.edit(spec -> spec.setEmbed(getView())).block();
+			Flux.concat(message.removeAllReactions(), message.edit(spec -> spec.setEmbed(getView()))).subscribe();
 		}
 		return b;
 	}
 	
 	public void delete() {
-		if (message != null) message.delete().block();
+		if (message != null) message.delete().subscribe();
 	}
 	
 	Consumer<? super EmbedCreateSpec> getView() {
@@ -62,7 +56,7 @@ public class PagedEmbed {
 	}
 	
 	void addPageReactions() {
-		currentPage.getDefaultReactions().forEach(emoji -> message.addReaction(emoji).block());
+		Flux.concat(currentPage.getDefaultReactions().stream().map(message::addReaction).collect(Collectors.toList())).subscribe();
 	}
 	
 	void onReact(ReactionAddEvent event) {

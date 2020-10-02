@@ -81,11 +81,13 @@ public class MessageListener implements Consumer<MessageCreateEvent> {
 								.addReactionAction(EMOJI_FIVE, e -> builder.hero(Hero.PALADIN))
 								.addReactionAction(EMOJI_SIX, e -> builder.hero(Hero.SORCERESS))
 								.addReactionAction(EMOJI_SEVEN, e -> builder.hero(Hero.DRUID))
-								.addReactionActionDelete(ReactionEmoji.unicode("✅"), e -> bot.getLadderTeamManager().joinTeam(builder.build()))
+								.addReactionActionDelete(ReactionEmoji.unicode("✅"), ignore -> bot.getLadderTeamManager().joinTeam(builder.build()))
 								.build());
 				break;
 			case "!leave":
-				
+				bot.getLadderTeamManager().leaveTeam(event.getMember()
+						.orElseThrow(() -> new IllegalStateException("A message was sent without a member?"))
+						.getId());
 				break;
 			case "!purge":
 				bot.getLadderTeamManager().purge();
