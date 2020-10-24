@@ -30,5 +30,3 @@ target/
 deploy/
 
 dependency-reduced-pom.xml
-/src/main/java/com/kabryxis/auriel/page/Main.java
-/src/main/java/com/kabryxis/auriel/page/KeyGenerator.java

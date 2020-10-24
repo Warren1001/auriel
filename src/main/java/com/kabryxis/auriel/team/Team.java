@@ -41,17 +41,6 @@ public class Team { // TODO channels need to have their permissions properly set
 		this.core = core;
 		this.type = type;
 		this.name = name;
-		manager.getGuild().subscribe(guild -> guild.createRole(spec -> spec.setName(name).setPermissions(
-				guild.getEveryoneRole().block().getPermissions()).setHoist(false).setMentionable(false))
-				.doOnSuccess(this::setRoleId)
-				.then(guild.createVoiceChannel(spec -> {
-					spec.setParentId(manager.getCategoryId()).setName(name);
-					manager.getHiddenChannelPermissions(getRoleId()).subscribe(spec::setPermissionOverwrites);
-				}).doOnSuccess(this::setVoiceId).and(guild.createTextChannel(spec -> {
-					spec.setParentId(manager.getCategoryId()).setName(name);
-					manager.getHiddenChannelPermissions(getRoleId()).subscribe(spec::setPermissionOverwrites);
-				}).doOnSuccess(this::setTextId)))
-				.subscribe());
 		this.users = Collections.synchronizedSet(new HashSet<>());
 	}
 	
@@ -71,6 +60,10 @@ public class Team { // TODO channels need to have their permissions properly set
 		this(manager, name, context.getRealm(), context.getCore(), context.getType());
 	}
 	
+	public String getName() {
+		return name;
+	}
+	
 	public Snowflake getRoleId() {
 		return roleId;
 	}
@@ -88,6 +81,9 @@ public class Team { // TODO channels need to have their permissions properly set
 	}
 	
 	public boolean hasCharacterSpace(Hero character) {
+		if (!hasSpace()) {
+			return false;
+		}
 		switch (character) {
 			case AMAZON:
 				return countAmazon < Hero.AMAZON.getRecommendedMaxAmount();
@@ -108,24 +104,29 @@ public class Team { // TODO channels need to have their permissions properly set
 		}
 	}
 	
-	public void addJoinContext(TeamContext context) {
+	/*public void addJoinContext(TeamContext context) {
 		if (hasSpace() && context.getRealm() == realm && context.getCore() == core && context.getType() == type) {
 			context.getPreferredChars().stream().filter(this::hasCharacterSpace).forEachOrdered(c -> context.addPreferredTeam(c, this));
 		}
-	}
+	}*/
 	
 	public void changeName(String name) {
 		this.name = name;
 		manager.getGuild().subscribe(guild -> Flux.concat(guild.getRoleById(roleId).map(role -> role.edit(spec -> spec.setName(name))),
-				guild.getChannelById(voiceId).map(channel -> ((VoiceChannel)channel).edit(spec -> spec.setName(name))), guild.getChannelById(textId)
+				guild.getChannelById(voiceId).map(channel -> ((VoiceChannel)channel).edit(spec -> spec.setName(name))),
+				guild.getChannelById(textId)
 						.map(channel -> ((TextChannel)channel).edit(spec -> spec.setName(name.replace(' ', '-').toLowerCase())))));
 	}
 	
 	public void join(Snowflake userId) {
-		manager.getGuild().flatMap(guild -> guild.getMemberById(userId)).subscribe(member -> {
-			users.add(userId);
-			member.addRole(roleId);
-		});
+		System.out.println("0");
+		manager.getGuild().flatMap(guild -> {
+			System.out.println(userId.asLong());
+			return guild.getMemberById(userId);
+		}).flatMap(member -> {
+			System.out.println(roleId.asLong());
+			return member.addRole(roleId);
+		}).subscribe(ignore -> users.add(userId));
 	}
 	
 	public void leave(Snowflake userId) {
@@ -140,15 +141,15 @@ public class Team { // TODO channels need to have their permissions properly set
 		return String.format("Team[name=%s]", name);
 	}
 	
-	private void setRoleId(Role role) {
+	void setRoleId(Role role) {
 		roleId = role.getId();
 	}
 	
-	private void setVoiceId(VoiceChannel channel) {
+	void setVoiceId(VoiceChannel channel) {
 		voiceId = channel.getId();
 	}
 	
-	private void setTextId(TextChannel channel) {
+	void setTextId(TextChannel channel) {
 		textId = channel.getId();
 	}
 	

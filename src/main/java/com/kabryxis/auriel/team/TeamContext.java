@@ -17,16 +17,17 @@ public class TeamContext {
 	private final Ladder.Realm realm;
 	private final Ladder.Core  core;
 	private final Ladder.Type  type;
-	private final List<Hero>   preferredChars;
+	private final List<Hero>   characters;
+	private final boolean      prefersPrimary;
 	
-	public TeamContext(@NotNull Snowflake userId, @NotNull Ladder.Realm realm, @NotNull Ladder.Core core, @NotNull Ladder.Type type,
-			@NotNull List<Hero> preferredChars) {
+	public TeamContext(@NotNull Snowflake userId, @NotNull Ladder.Realm realm, @NotNull Ladder.Core core, @NotNull Ladder.Type type, @NotNull List<Hero> characters, boolean prefersPrimary) {
 		this.userId = Objects.requireNonNull(userId, "userId cannot be null");
 		this.realm = Objects.requireNonNull(realm, "realm cannot be null");
 		this.core = Objects.requireNonNull(core, "core cannot be null");
 		this.type = Objects.requireNonNull(type, "type cannot be null");
-		Validate.notEmpty(preferredChars, "preferredChars cannot be empty");
-		this.preferredChars = Objects.requireNonNull(preferredChars, "preferredChars cannot be null");
+		Validate.notEmpty(characters, "characters cannot be empty");
+		this.characters = Objects.requireNonNull(characters, "preferredChars cannot be null");
+		this.prefersPrimary = prefersPrimary;
 	}
 	
 	@NotNull
@@ -50,8 +51,12 @@ public class TeamContext {
 	}
 	
 	@NotNull
-	public List<Hero> getPreferredChars() {
-		return preferredChars;
+	public List<Hero> getCharacters() {
+		return characters;
+	}
+	
+	public boolean prefersPrimary() {
+		return prefersPrimary;
 	}
 	
 	public static class Builder {
@@ -104,12 +109,19 @@ public class TeamContext {
 			heroes.clear();
 		}
 		
+		private boolean prefersPrimary = false;
+		
+		public Builder prefersPrimary() {
+			prefersPrimary = true;
+			return this;
+		}
+		
 		@NotNull
 		public TeamContext build() {
 			Validate.notNull(realm, "Realm cannot be null");
 			Validate.notNull(core, "Core cannot be null");
 			Validate.isTrue(!heroes.isEmpty(), "There must be at least one character selected.");
-			return new TeamContext(userId, realm, core, type, heroes);
+			return new TeamContext(userId, realm, core, type, heroes, prefersPrimary);
 		}
 		
 	}
