@@ -2,9 +2,11 @@ package io.github.warren1001.auriel.channel
 
 import com.mongodb.client.result.UpdateResult
 import discord4j.common.util.Snowflake
-import discord4j.core.`object`.entity.channel.MessageChannel
 import discord4j.core.event.domain.message.MessageCreateEvent
+import discord4j.core.`object`.entity.channel.GuildMessageChannel
+import discord4j.core.`object`.entity.channel.MessageChannel
 import io.github.warren1001.auriel.*
+import io.github.warren1001.auriel.user.Permission
 import io.github.warren1001.auriel.util.Filter
 import org.litote.kmongo.reactor.findOneById
 import reactor.core.publisher.Mono
@@ -52,15 +54,33 @@ class ChannelManager {
 	
 	private fun startMessageAgeTimer() {
 		if (channelData.maxMessageAge != 0L && channelData.messageAgeInterval != 0L) {
-			println("maxMessageAge: ${channelData.maxMessageAge}, messageAgeInterval: ${channelData.messageAgeInterval}")
+			//println("maxMessageAge: ${channelData.maxMessageAge}, messageAgeInterval: ${channelData.messageAgeInterval}")
 			messageAgeTimer = timer("messageAge-${id.asString()}", true, 0, channelData.messageAgeInterval) {
+				//println("timer called")
 				auriel.gateway
 					.getChannelById(id)
-					.cast(MessageChannel::class.java)
-					.flatMapMany { it.getMessagesBefore(Snowflake.of(Instant.now().minusMillis(channelData.maxMessageAge))).take(500L, true) }
-					.filter { !it.isPinned }
-					.flatMap { it.del() }
-					.handleErrors("startMessageAgeTimer")
+					.cast(GuildMessageChannel::class.java)
+					.flatMapMany {
+						//println("looking for messages")
+						it.getMessagesBefore(Snowflake.of(Instant.now().minusMillis(channelData.maxMessageAge)))
+					}
+					.filter {
+						//println("[${it.id}] found a message, checking if pinned")
+						!it.isPinned
+					}
+					.filter {
+						//println("[${it.id}] not pinned, checking if bot")
+						!it.author.orElseThrow().isBot
+					}
+					.filter {
+						//println("[${it.id}] not a bot, checking if mod")
+						!auriel.getGuildManager(guildId).userDataManager.getData(it.author.orElseThrow().id).block()!!.hasPermission(Permission.MODERATOR)
+					}
+					.flatMap {
+						//println("[${it.id}] not a mod, so delete it")
+						it.del()
+					}
+					.handleErrors(auriel, "startMessageAgeTimer")
 					.subscribe()
 			}
 		}
@@ -68,25 +88,38 @@ class ChannelManager {
 	
 	fun handleMessageCreate(event: MessageCreateEvent): Mono<out Any> {
 		val author = event.message.author.orElseThrow()
-		val content = event.message.content
-		val filters = channelData.filters
-		if (filters.any { it.containsMatchIn(content) }) {
-			val blacklistedStrings = filters.filter { it.containsMatchIn(content) }.joinToString(separator = ", ") { it.getAllMatchedStrings(content) }
-			return Mono.`when`(event.message.del().async(),
-				author.dm("Your message was deleted because it contained the following: $blacklistedStrings\n" +
-						"```${content.replace("```", "`\\`\\`")}```").async())
+		return author.getData(auriel, guildId).flatMap { userData ->
+			if (userData.permission < Permission.MODERATOR && !author.isBot) {
+				val content = event.message.content
+				val filters = channelData.filters
+				return@flatMap if (filters.any { it.containsMatchIn(content) }) {
+					val blacklistedStrings = filters.filter { it.containsMatchIn(content) }.joinToString(separator = ", ") { it.getAllMatchedStrings(content) }
+					Mono.`when`(
+						event.message.del().async(),
+						author.dm(
+							"Your message was deleted because it contained the following: $blacklistedStrings\n" +
+									"```${content.replace("```", "`\\`\\`")}```"
+						).async()
+					)
+				} else if (content.split('\n').size > channelData.lineLimit) {
+					Mono.`when`(
+						event.message.del().async(),
+						author.dm(
+							"Your message was deleted because it went past the channel's line limit of ${channelData.lineLimit}.\n" +
+									"```\n${content.replace("```", "`\\`\\`")}```"
+						).async()
+					)
+				} else if (channelData.onlyOneMessage) {
+					val messageId = lastUserMessage[author.id]
+					lastUserMessage[author.id] = event.message.id
+					if (messageId != null && !messageId.isDeletedMessage()) {
+						auriel.gateway.getMessageById(id, messageId).filter {
+							!it.isPinned && !author.isBot && !userData.hasPermission(Permission.MODERATOR)
+						}.flatMap { it.del() }
+					} else NOTHING
+				} else NOTHING
+			} else NOTHING
 		}
-		if (content.split('\n').size > channelData.lineLimit) {
-			return Mono.`when`(event.message.del().async(),
-				author.dm("Your message was deleted because it went past the channel's line limit of ${channelData.lineLimit}.\n" +
-						"```\n${content.replace("```", "`\\`\\`")}```").async())
-		}
-		if (channelData.onlyOneMessage) {
-			val messageId = lastUserMessage[author.id]
-			lastUserMessage[author.id] = event.message.id
-			if (messageId != null && !messageId.isDeletedMessage()) return auriel.gateway.getMessageById(id, messageId).flatMap { it.del() }
-		}
-		return NOTHING
 	}
 	
 	fun toggleRepost(): Mono<UpdateResult> {
@@ -116,7 +149,10 @@ class ChannelManager {
 		if (channelData.onlyOneMessage) {
 			auriel.gateway.getChannelById(id).cast(MessageChannel::class.java)
 				.flatMapMany { it.getMessagesBefore(Snowflake.of(Instant.now())) }
-				.handleErrors()
+				.handleErrors(auriel)
+				.filter { !it.isPinned }
+				.filter { !it.author.orElseThrow().isBot }
+				.filter { !auriel.getGuildManager(guildId).userDataManager.getData(it.author.orElseThrow().id).block()!!.hasPermission(Permission.MODERATOR) }
 				.filter {
 					val authorId = it.author.orElseThrow().id
 					val delete = lastUserMessage.containsKey(authorId)
@@ -124,10 +160,13 @@ class ChannelManager {
 					delete
 				}
 				.flatMap { it.del() }
-				.handleErrors("deleteAllButOneMessage")
+				.handleErrors(auriel, "deleteAllButOneMessage")
 				.subscribe()
 		}
 	}
 	
+	fun clearUserLastMessage(id: Snowflake, messageId: Snowflake) {
+		if (lastUserMessage[id]?.equals(messageId) == true) lastUserMessage.remove(id)
+	}
 	
 }
