@@ -10,8 +10,6 @@ import kotlin.concurrent.timer
 
 class YoutubeAnnouncer(private val auriel: Auriel, private val guildId: Snowflake, val data: YoutubeData, youtube: YouTube) {
 	
-	//private val buttonList = mutableListOf(Button.primary("${guildId.asString()}-ytg", "Give me the role."), Button.danger("${guildId.asString()}-ytr", "I don't want the role anymore."))
-	
 	private val playlistItemsRequest: YouTube.PlaylistItems.List;
 	private val playlistItemsRequestLimit: YouTube.PlaylistItems.List;
 	
@@ -35,31 +33,6 @@ class YoutubeAnnouncer(private val auriel: Auriel, private val guildId: Snowflak
 				early = false
 			}
 		}
-		
-		/*auriel.gateway.on(ButtonInteractionEvent::class.java).handleErrors(auriel).filter { it.customId.startsWith(guildId.asString()) }.flatMap {
-			
-			val member = it.interaction.member.get()
-			
-			return@flatMap if (it.customId.endsWith("-ytg")) {
-				
-				if (member.roleIds.contains(data.roleId)) {
-					it.reply("You already have the role to receive notifications for new YouTube videos.").withEphemeral(true)
-				} else {
-					member.addRole(data.roleId).handleErrors(auriel)
-						.then(it.reply("You will now receive notifications for new YouTube videos! They will be announced in ${channel!!.mention}.").withEphemeral(true))
-				}
-				
-			} else {
-				
-				if (member.roleIds.contains(data.roleId)) {
-					member.removeRole(data.roleId).handleErrors(auriel).then(it.reply("You will no longer receive notifications for new YouTube videos.").withEphemeral(true))
-				} else {
-					it.reply("You do not have the role to receive notifications for new YouTube videos.").withEphemeral(true)
-				}
-				
-			}
-			
-		}.subscribe()*/
 		
 		timer("${guildId.asString()}-ytcheck", true, 0L, (1000 * 60 * 1).toLong()) { checkForUpload() }
 		
@@ -96,20 +69,8 @@ class YoutubeAnnouncer(private val auriel: Auriel, private val guildId: Snowflak
 	fun sendRoleGiveMessage(channelId: Snowflake): Mono<Message> {
 		return auriel.getGuildManager(guildId).sendRoleGiveMsg(
 			channelId, data.roleId, "If you would like to receive a role for notifications for new YouTube videos here on Discord, " +
-					"click the button labeled `Give me the role`.\nThe announcements for new YouTube videos will be in ${channel!!.mention}."
+					"click the button labeled `Give me the role`.\nThe announcements for new YouTube videos will be in ${channel!!.mention}.", "Give me the role", "I don't want the role anymore"
 		)
-		/*auriel.gateway.getGuildById(guildId).flatMap { it.getChannelById(channelId).cast(MessageChannel::class.java) }.flatMap {
-			it.message(
-				MessageCreateSpec.builder().content(
-					"If you would like to receive a role for notifications for new YouTube videos here on Discord, " +
-							"click the button labeled `Give me the role`.\nThe announcements for new YouTube videos will be in ${channel!!.mention}."
-				).addComponent(ActionRow.of(buttonList)).build()
-			)
-		}.subscribe {
-			data.roleMessageId = it.id
-			auriel.updateYoutubeData(data)
-		}
-		return true*/
 	}
 	
 }

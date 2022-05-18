@@ -48,9 +48,10 @@ class GuildManager(private val auriel: Auriel, private val id: Snowflake) {
 		}
 	}
 	
-	fun stopCloneQueue() {
-		cloneQueue?.destroy()
+	fun stopCloneQueue(): Mono<out Any>? {
+		val a = cloneQueue?.destroy()
 		cloneQueue = null
+		return a
 	}
 	
 	fun getChannelManager(channelId: Snowflake) = channelManagers.computeIfAbsent(channelId) { ChannelManager(auriel, channelId, id) }
@@ -66,7 +67,7 @@ class GuildManager(private val auriel: Auriel, private val id: Snowflake) {
 						Mono.`when`(
 							event.message.delAndLog(auriel, "swearing: $blacklistedStrings").async(),
 							member.dm(
-								"Your message was deleted because it contained the following: $blacklistedStrings\n" +
+								"Your message was deleted for using a not-family-friendly word: $blacklistedStrings\n" +
 										"```${content.replace("```", "`\\`\\`")}```"
 							).async()
 						)
@@ -109,11 +110,12 @@ class GuildManager(private val auriel: Auriel, private val id: Snowflake) {
 		else NOTHING
 	}
 	
-	fun sendRoleGiveMsg(channelId: Snowflake, roleId: Snowflake, message: String): Mono<Message> {
+	fun sendRoleGiveMsg(channelId: Snowflake, roleId: Snowflake, message: String, given: String, removed: String): Mono<Message> {
 		return auriel.gateway.getChannelById(channelId).ofType(GuildMessageChannel::class.java).flatMap {
 			it.message(
 				MessageCreateSpec.builder().content(message)
-					.addComponent(ActionRow.of(Button.primary("r-${roleId.asString()}-g", "Give me the role"), Button.danger("r-${roleId.asString()}-r", "I don't want the role anymore"))).build()
+					.addComponent(ActionRow.of(Button.primary("r-${roleId.asString()}-g", given.truncate(80)), Button.danger("r-${roleId.asString()}-r", removed.truncate(80))))
+					.build()
 			)
 		}
 	}

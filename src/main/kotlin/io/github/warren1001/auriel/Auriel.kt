@@ -13,9 +13,7 @@ import discord4j.core.DiscordClient
 import discord4j.core.GatewayDiscordClient
 import discord4j.core.event.domain.interaction.ButtonInteractionEvent
 import discord4j.core.event.domain.lifecycle.ReadyEvent
-import discord4j.core.event.domain.message.MessageCreateEvent
-import discord4j.core.event.domain.message.MessageDeleteEvent
-import discord4j.core.event.domain.message.MessageUpdateEvent
+import discord4j.core.event.domain.message.*
 import discord4j.core.`object`.entity.Guild
 import discord4j.core.`object`.entity.Member
 import discord4j.core.`object`.entity.Message
@@ -72,6 +70,7 @@ class Auriel(val gateway: GatewayDiscordClient, youtubeKey: String) {
 	val youtubeDataCollection: MongoCollection<YoutubeData> = database.getCollection("youtube", YoutubeData::class.java)
 	val youtubeManager: YoutubeManager = YoutubeManager(this, youtubeKey)
 	val userManager: UserManager = UserManager(this)
+	val reactionMessageHandler = ReactionMessageHandler(this)
 	val warren: User = gateway.getUserById(WARREN_ID).blockOptional().orElseThrow()
 	
 	init {
@@ -96,8 +95,11 @@ class Auriel(val gateway: GatewayDiscordClient, youtubeKey: String) {
 					it.clearUserLastMessage(event.message.get().author.get().id, event.message.get().id)
 				}
 		}.handleErrors(this, "deleteListener").async()
+		val reactionAddListener =
+			gateway.on(ReactionAddEvent::class.java).filter { it.userId != gateway.selfId }.flatMap { reactionMessageHandler.onReactionAdd(it) }.handleErrors(this, "reactionAddListener").async()
+		val reactionRemoveListener = gateway.on(ReactionRemoveEvent::class.java).flatMap { reactionMessageHandler.onReactionRemove(it) }.handleErrors(this, "reactionRemoveListener").async()
 		val buttonListener = gateway.on(ButtonInteractionEvent::class.java).flatMap { buttonClickHandler.handle(it) }.handleErrors(this, "buttonListener").async()
-		return Flux.merge(guildCreateListener, privateCreateListener, editListener, deleteListener, buttonListener)
+		return Flux.merge(guildCreateListener, privateCreateListener, editListener, deleteListener, reactionAddListener, reactionRemoveListener, buttonListener)
 	}
 	
 	fun getGuildManager(guildId: Snowflake): GuildManager {
@@ -115,8 +117,6 @@ class Auriel(val gateway: GatewayDiscordClient, youtubeKey: String) {
 	}
 	
 }
-
-val EMOJI_CHECKMARK: ReactionEmoji.Unicode = ReactionEmoji.unicode("✅")
 
 fun main(args: Array<String>) {
 	
@@ -143,10 +143,10 @@ fun main(args: Array<String>) {
 			auriel!!.registerListeners()
 		}
 		
-	}.onErrorContinue { t, _ ->
+	}.onErrorContinue { t, a ->
 		println("[ERROR] withGateway")
 		t.printStackTrace()
-		if (auriel != null) auriel!!.warren.dm("withGateway - ${t.javaClass.name}: ${t.message}\n${t.stackTrace.joinToString("\n")}").subscribe()
+		if (auriel != null) auriel!!.warren.dm("Associated object: $a\nwithGateway - ${t.javaClass.name}: ${t.message}\n${t.stackTrace.joinToString("\n")}").subscribe()
 	}.block()
 	
 }
@@ -160,24 +160,21 @@ private val deletedMessages: LoadingCache<Snowflake, Any> = CacheBuilder.newBuil
 
 fun Message.deletedReply(message: String): Mono<Message> = channel.flatMap { it.createMessage("${author.orElseThrow().mention}, $message") }
 
-fun Message.reply(message: String, delete: Boolean = false, duration: Duration = Duration.ZERO): Mono<out Any> {
+fun Message.reply(message: String, delete: Boolean = false, duration: Duration = Duration.ZERO): Mono<Message> {
 	if (isDeleted()) return deletedReply(message)
-	val monos = mutableListOf<Mono<out Any>>()
-	if (delete) monos.add(del().async())
-	val messageMono = if (delete) deletedReply(message).async() else channel.flatMap {
+	var messageMono: Mono<Message> = if (delete) deletedReply(message).async() else channel.flatMap {
 		it.message(
 			MessageCreateSpec.builder().content(message).messageReference(id).build()
 		)
 	}
+	if (delete) messageMono = del().then(messageMono)
 	if (duration != Duration.ZERO) {
-		monos.add(messageMono.flatMap { msg ->
-			Mono.just(msg).flatMap { it.del() }.delaySubscription(duration)
-		})
-	} else monos.add(messageMono)
-	return Mono.`when`(monos)
+		messageMono = messageMono.doOnSuccess { it.del().delaySubscription(duration).subscribe() }
+	}
+	return messageMono
 }
 
-fun Message.reply(auriel: Auriel, message: String, deleteReason: String, duration: Duration = Duration.ZERO): Mono<out Any> {
+/*fun Message.reply(auriel: Auriel, message: String, deleteReason: String, duration: Duration = Duration.ZERO): Mono<out Any> {
 	if (isDeleted()) return deletedReply(message)
 	val messageMono = deletedReply(message)
 	return if (duration != Duration.ZERO) {
@@ -185,55 +182,46 @@ fun Message.reply(auriel: Auriel, message: String, deleteReason: String, duratio
 			Mono.just(msg).flatMap { it.del() }.delaySubscription(duration)
 		})
 	} else Mono.`when`(delAndLog(auriel, deleteReason).async(), messageMono.async())
-}
+}*/
 
 fun Message.isDeleted(): Boolean {
-	//println("(Message) checking if message $id is deleted")
 	return deletedMessages.asMap().containsKey(id)
 }
 
 fun Message.delAndLog(auriel: Auriel, reason: String = "", channel: GuildMessageChannel? = null): Mono<Void> {
 	if (isDeleted()) return NOTHING
-	deletedMessages.put(id, EMPTY)
 	val logMono: Mono<out Any> = if (channel == null) getChannel().ofType(GuildMessageChannel::class.java).flatMap {
 		auriel.getGuildManager(guildId.orElseThrow()).log(author.orElseThrow(), it, "Deleted Message", reason, content)
 	} else auriel.getGuildManager(guildId.orElseThrow()).log(author.orElseThrow(), channel, "Deleted Message", reason, content)
-	return Mono.`when`(delete(reason).async(), logMono.async())
+	return Mono.`when`(del(reason).async(), logMono.async())
 }
 
 fun Message.del(reason: String? = null): Mono<Void> {
-	//println("[$id] (Message) deleting message")
-	if (isDeleted()) return NOTHING
-	deletedMessages.put(id, EMPTY)
-	//println("[$id] (Message) deleted message")
-	return delete(reason)
+	return if (isDeleted()) return NOTHING else delete(reason).doOnSuccess { deletedMessages.put(id, EMPTY) }
 }
 
-fun Message.acknowledge(emoji: ReactionEmoji = EMOJI_CHECKMARK) = addReaction(emoji)
+fun Message.acknowledge(emoji: ReactionEmoji = Emojis.CHECKMARK): Mono<Void> = addReaction(emoji)
 
-fun Mono<Message>.ackIfSuccess(emoji: ReactionEmoji = EMOJI_CHECKMARK): Mono<Message> = doOnSuccess { it.acknowledge(emoji).subscribe() }
-
-fun <T> Mono<out T>.ackIfSuccess(message: Message, emoji: ReactionEmoji = EMOJI_CHECKMARK): Mono<out T> = doOnSuccess { message.acknowledge(emoji).subscribe() }
+fun <T> Mono<out T>.ackIfSuccess(message: Message, emoji: ReactionEmoji = Emojis.CHECKMARK): Mono<out T> = doOnSuccess { message.acknowledge(emoji).subscribe() }
 
 fun Snowflake.isDeletedMessage(): Boolean {
-	//println("(Snowflake) checking if message $this is deleted")
 	return deletedMessages.asMap().containsKey(this)
 }
 
 fun <T> Mono<T>.async(): Mono<T> = subscribeOn(Schedulers.boundedElastic())
 
-fun <T> Mono<T>.handleErrors(auriel: Auriel, ref: String = ""): Mono<T> = onErrorContinue { t, _ ->
+fun <T> Mono<T>.handleErrors(auriel: Auriel, ref: String = ""): Mono<T> = onErrorContinue { t, a ->
 	println(if (ref.isBlank()) "yes you handled the following error" else "yes you handled the following error - $ref")
 	t.printStackTrace()
-	auriel.warren.dm("${if (ref.isBlank()) "" else "$ref - "}${t.javaClass.name}: ${t.message}\n${t.stackTrace.joinToString("\n")}").subscribe()
+	auriel.warren.dm("Associated object: $a\n${if (ref.isBlank()) "" else "$ref - "}${t.javaClass.name}: ${t.message}\n${t.stackTrace.joinToString("\n")}").subscribe()
 }
 
 fun <T> Flux<T>.async(): Flux<T> = subscribeOn(Schedulers.boundedElastic())
 
-fun <T> Flux<T>.handleErrors(auriel: Auriel, ref: String = ""): Flux<T> = onErrorContinue { t, _ ->
+fun <T> Flux<T>.handleErrors(auriel: Auriel, ref: String = ""): Flux<T> = onErrorContinue { t, a ->
 	println(if (ref.isBlank()) "yes you handled the following error" else "yes you handled the following error - $ref")
 	t.printStackTrace()
-	auriel.warren.dm("${if (ref.isBlank()) "" else "$ref - "}${t.javaClass.name}: ${t.message}\n${t.stackTrace.joinToString("\n")}").subscribe()
+	auriel.warren.dm("Associated object: $a\n${if (ref.isBlank()) "" else "$ref - "}${t.javaClass.name}: ${t.message}\n${t.stackTrace.joinToString("\n")}").subscribe()
 }
 
 fun Member.getData(auriel: Auriel) = auriel.getGuildManager(guildId).userDataManager.getData(id)
@@ -245,14 +233,14 @@ fun Member.updateData(auriel: Auriel, changes: (UserData) -> Unit): Mono<UpdateR
 
 fun User.getData(auriel: Auriel, guildId: Snowflake) = auriel.getGuildManager(guildId).userDataManager.getData(id)
 
-fun User.updateData(auriel: Auriel, guildId: Snowflake, changes: (UserData) -> Unit) = getData(auriel, guildId).flatMap {
+fun User.updateData(auriel: Auriel, guildId: Snowflake, changes: (UserData) -> Unit): Mono<UpdateResult> = getData(auriel, guildId).flatMap {
 	changes.invoke(it)
 	it.update(auriel)
 }
 
 fun Guild.getData(auriel: Auriel): Mono<GuildData> = Mono.just(auriel.getGuildManager(id).guildData)
 
-fun Guild.updateData(auriel: Auriel, changes: (GuildData) -> Unit) = getData(auriel).flatMap {
+fun Guild.updateData(auriel: Auriel, changes: (GuildData) -> Unit): Mono<UpdateResult> = getData(auriel).flatMap {
 	changes.invoke(it)
 	auriel.updateGuildData(it)
 }
@@ -276,6 +264,8 @@ fun MessageChannel.message(spec: MessageCreateSpec): Mono<Message> = createMessa
 fun User.dm(message: String): Mono<Message> = privateChannel.flatMap { it.message(message) }
 
 fun User.dm(spec: MessageCreateSpec): Mono<Message> = privateChannel.flatMap { it.message(spec) }
+
+fun String.truncate(length: Int): String = this.substring(0, this.length.coerceAtMost(length))
 
 
 

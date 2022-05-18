@@ -16,18 +16,14 @@ class GuildMessageCreateHandler(private val auriel: Auriel) {
 	fun handle(event: MessageCreateEvent): Publisher<out Any> {
 		
 		// if author is empty, the message was a clientside bot message
-		if (!event.message.author.isPresent) {
-			return NOTHING
-		}
-		
-		if (event.message.author.orElseThrow().id == auriel.gateway.selfId) return NOTHING
+		if (!event.message.author.isPresent || event.message.author.orElseThrow().id == auriel.gateway.selfId) return NOTHING
 		
 		val monos = mutableListOf<Mono<out Any>>()
 		
 		if (commandManager.isCommand(event)) monos.add(commandManager.handle(event).handleErrors(auriel, "GuildMessageCreateHandler,commandHandle").async())
-		monos.add(auriel.getGuildManager(event.guildId.orElseThrow()).handleMessageCreate(event).handleErrors(auriel, "GuildMessageCreateHandler,channelHandle").async())
+		monos.add(auriel.getGuildManager(event.guildId.orElseThrow()).handleMessageCreate(event).async())
 		
-		return if (monos.isEmpty()) NOTHING else Flux.merge(monos).handleErrors(auriel, "GuildMessageCreateHandler,merge")
+		return if (monos.isEmpty()) NOTHING else Flux.merge(monos)
 	}
 	
 }

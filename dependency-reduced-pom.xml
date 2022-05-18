@@ -49,6 +49,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.10.0</version>
         <configuration>
           <source>10</source>
           <target>10</target>
@@ -64,7 +65,7 @@
     <repository>
       <snapshots />
       <id>oss.sonatype.org-snapshot</id>
-      <url>http://oss.sonatype.org/content/repositories/snapshots</url>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
     </repository>
     <repository>
       <id>repo.spring.io-milestone</id>
@@ -72,7 +73,7 @@
     </repository>
     <repository>
       <id>google-api-services</id>
-      <url>http://google-api-client-libraries.appspot.com/mavenrepo</url>
+      <url>https://google-api-client-libraries.appspot.com/mavenrepo</url>
     </repository>
   </repositories>
   <dependencyManagement>

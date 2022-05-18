@@ -54,33 +54,19 @@ class ChannelManager {
 	
 	private fun startMessageAgeTimer() {
 		if (channelData.maxMessageAge != 0L && channelData.messageAgeInterval != 0L) {
-			//println("maxMessageAge: ${channelData.maxMessageAge}, messageAgeInterval: ${channelData.messageAgeInterval}")
 			messageAgeTimer = timer("messageAge-${id.asString()}", true, 0, channelData.messageAgeInterval) {
-				//println("timer called")
 				auriel.gateway
 					.getChannelById(id)
+					.handleErrors(auriel, "startMessageAgeTimer")
 					.cast(GuildMessageChannel::class.java)
 					.flatMapMany {
-						//println("looking for messages")
 						it.getMessagesBefore(Snowflake.of(Instant.now().minusMillis(channelData.maxMessageAge)))
 					}
 					.filter {
-						//println("[${it.id}] found a message, checking if pinned")
-						!it.isPinned
+						!it.isPinned && !it.author.orElseThrow().isBot && !auriel.getGuildManager(guildId).userDataManager.getData(it.author.orElseThrow().id).block()!!
+							.hasPermission(Permission.MODERATOR)
 					}
-					.filter {
-						//println("[${it.id}] not pinned, checking if bot")
-						!it.author.orElseThrow().isBot
-					}
-					.filter {
-						//println("[${it.id}] not a bot, checking if mod")
-						!auriel.getGuildManager(guildId).userDataManager.getData(it.author.orElseThrow().id).block()!!.hasPermission(Permission.MODERATOR)
-					}
-					.flatMap {
-						//println("[${it.id}] not a mod, so delete it")
-						it.del()
-					}
-					.handleErrors(auriel, "startMessageAgeTimer")
+					.flatMap { it.del() }
 					.subscribe()
 			}
 		}

@@ -50,7 +50,7 @@ class CommandManager(private val auriel: Auriel) {
 				val arg1 = args[1]
 				if (arg1.contains(' ')) {
 					val args1 = arg1.split(' ', limit = 2)
-					ctx.event.guild.flatMap { it.updateData(auriel) { it.filters.add(Filter(Regex(args[0], setOf(RegexOption.IGNORE_CASE, RegexOption.LITERAL)), args1[1])) } }
+					ctx.event.guild.flatMap { it.updateData(auriel) { it.filters.add(Filter(Regex(args1[0], setOf(RegexOption.IGNORE_CASE, RegexOption.LITERAL)), args1[1])) } }
 						.ackIfSuccess(ctx.event.message)
 				} else {
 					ctx.event.guild.flatMap { it.updateData(auriel) { it.filters.add(Filter(Regex(arg, setOf(RegexOption.IGNORE_CASE, RegexOption.LITERAL)))) } }.ackIfSuccess(ctx.event.message)
@@ -100,7 +100,6 @@ class CommandManager(private val auriel: Auriel) {
 			val arg = ctx.arguments
 			val args = arg.split(' ')
 			if (args.size == 2) {
-				val member = ctx.event.member.orElseThrow()
 				val targetId = Snowflake.of(args[1])
 				if (args[0].equals("add", true)) {
 					auriel.gateway.getGuildById(ctx.event.guildId.orElseThrow()).flatMap { it.getMemberById(targetId) }.flatMap { it.updateData(auriel) { it.permission = Permission.MODERATOR } }
@@ -111,17 +110,20 @@ class CommandManager(private val auriel: Auriel) {
 				} else NOTHING
 			} else NOTHING
 		}
-		registerCommand("startclone") { ctx ->
+		registerCommand("startclone", permission = Permission.MODERATOR) { ctx ->
 			val arg = ctx.arguments
-			val args = arg.split(' ')
-			val guildId = ctx.event.guildId.orElseThrow()
-			val helperChannelId = Snowflake.of(args[0])
-			val requestChannelId = Snowflake.of(args[1])
-			auriel.getGuildManager(guildId).startCloneQueue(ctx.event.message, helperChannelId, requestChannelId).ackIfSuccess(ctx.event.message)
+			val args = arg.split(' ', limit = 2)
+			return@registerCommand if (args.size == 2 && args[1].isNotEmpty()) {
+				val guildId = ctx.event.guildId.orElseThrow()
+				val helperChannelId = Snowflake.of(args[0])
+				val helpChannelId = Snowflake.of(args[1])
+				auriel.getGuildManager(guildId).startCloneQueue(ctx.event.message, helperChannelId, helpChannelId).ackIfSuccess(ctx.event.message)
+			} else {
+				ctx.event.message.reply("Usage: `!startclone <helper channel id> <request channel id>`")
+			}
 		}
-		registerCommand("endclone") { ctx ->
-			auriel.getGuildManager(ctx.event.guildId.orElseThrow()).stopCloneQueue()
-			ctx.event.message.acknowledge()
+		registerCommand("endclone", permission = Permission.MODERATOR) { ctx ->
+			auriel.getGuildManager(ctx.event.guildId.orElseThrow()).stopCloneQueue()?.then(ctx.event.message.acknowledge()) ?: NOTHING
 		}
 		registerCommand("rolegivemsg", permission = Permission.MODERATOR) { ctx ->
 			val arg = ctx.arguments
@@ -129,12 +131,19 @@ class CommandManager(private val auriel: Auriel) {
 			return@registerCommand if (args.size == 2 && args[1].isNotEmpty()) {
 				val guildId = ctx.event.guildId.orElseThrow()
 				val roleId = Snowflake.of(args[0])
-				val message = args[1]
-				auriel.getGuildManager(guildId).sendRoleGiveMsg(ctx.event.message.channelId, roleId, message).ackIfSuccess(ctx.event.message)
+				val messagesString = args[1]
+				val messages = messagesString.split(';', limit = 3)
+				if (messages.size == 3 && messages[2].isNotEmpty()) {
+					val message = messages[0]
+					val given = messages[1]
+					val removed = messages[2]
+					auriel.getGuildManager(guildId).sendRoleGiveMsg(ctx.event.message.channelId, roleId, message, given, removed).ackIfSuccess(ctx.event.message)
+				} else {
+					ctx.event.message.reply("Usage: `!rolegivemsg <role id> <message>;<given button text>;<removed button text>`")
+				}
 			} else {
-				ctx.event.message.reply("Usage: `rolegivemsg <role id> <message>`")
+				ctx.event.message.reply("Usage: `!rolegivemsg <role id> <message>;<given button text>;<removed button text>`")
 			}
-			
 		}
 	}
 	
