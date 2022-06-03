@@ -1,4 +1,4 @@
-package io.github.warren1001.auriel.util
+package io.github.warren1001.auriel.youtube
 
 import discord4j.common.util.Snowflake
 
@@ -6,6 +6,5 @@ data class YoutubeData(val _id: Snowflake, val playListId: String, var roleId: S
 	
 	var lastUpdate: Long = 0L
 	var message: String = "%TITLE% %URL%"
-	var roleMessageId: Snowflake? = null
 	
 }

@@ -1,4 +1,4 @@
-package io.github.warren1001.auriel
+package io.github.warren1001.auriel.reaction
 
 import discord4j.common.util.Snowflake
 

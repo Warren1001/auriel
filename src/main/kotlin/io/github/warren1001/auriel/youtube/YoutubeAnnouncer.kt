@@ -1,14 +1,12 @@
-package io.github.warren1001.auriel.util
+package io.github.warren1001.auriel.youtube
 
 import com.google.api.services.youtube.YouTube
 import discord4j.common.util.Snowflake
-import discord4j.core.`object`.entity.Message
 import discord4j.core.`object`.entity.channel.MessageChannel
 import io.github.warren1001.auriel.Auriel
-import reactor.core.publisher.Mono
 import kotlin.concurrent.timer
 
-class YoutubeAnnouncer(private val auriel: Auriel, private val guildId: Snowflake, val data: YoutubeData, youtube: YouTube) {
+class YoutubeAnnouncer(private val auriel: Auriel, guildId: Snowflake, val data: YoutubeData, youtube: YouTube) {
 	
 	private val playlistItemsRequest: YouTube.PlaylistItems.List;
 	private val playlistItemsRequestLimit: YouTube.PlaylistItems.List;
@@ -38,13 +36,10 @@ class YoutubeAnnouncer(private val auriel: Auriel, private val guildId: Snowflak
 		
 	}
 	
-	fun checkForUpload() {
+	private fun checkForUpload() {
 		if (channel == null) {
 			early = true
 			return
-		}
-		if (data.roleMessageId == null) {
-			sendRoleGiveMessage(data.roleMessageChannel).subscribe()
 		}
 		val playlistItems = if (data.lastUpdate == 0L) playlistItemsRequestLimit.execute() else playlistItemsRequest.execute()
 		playlistItems.items.filter { it.snippet.resourceId.kind == "youtube#video" && it.snippet.publishedAt.value > data.lastUpdate }
@@ -61,16 +56,9 @@ class YoutubeAnnouncer(private val auriel: Auriel, private val guildId: Snowflak
 		
 	}
 	
-	fun updateLastUpdate(time: Long) {
+	private fun updateLastUpdate(time: Long) {
 		data.lastUpdate = time
 		auriel.updateYoutubeData(data)
-	}
-	
-	fun sendRoleGiveMessage(channelId: Snowflake): Mono<Message> {
-		return auriel.getGuildManager(guildId).sendRoleGiveMsg(
-			channelId, data.roleId, "If you would like to receive a role for notifications for new YouTube videos here on Discord, " +
-					"click the button labeled `Give me the role`.\nThe announcements for new YouTube videos will be in ${channel!!.mention}.", "Give me the role", "I don't want the role anymore"
-		)
 	}
 	
 }

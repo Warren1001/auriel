@@ -21,7 +21,7 @@ class GuildMessageCreateHandler(private val auriel: Auriel) {
 		val monos = mutableListOf<Mono<out Any>>()
 		
 		if (commandManager.isCommand(event)) monos.add(commandManager.handle(event).handleErrors(auriel, "GuildMessageCreateHandler,commandHandle").async())
-		monos.add(auriel.getGuildManager(event.guildId.orElseThrow()).handleMessageCreate(event).async())
+		monos.add(auriel.getGuildManager(event.guildId.orElseThrow()).handleMessageCreate(event).handleErrors(auriel, "GuildMessageCreateHandler,handleMessageCreate").async())
 		
 		return if (monos.isEmpty()) NOTHING else Flux.merge(monos)
 	}

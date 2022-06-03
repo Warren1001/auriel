@@ -1,4 +1,4 @@
-package io.github.warren1001.auriel.util
+package io.github.warren1001.auriel.youtube
 
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
@@ -19,8 +19,7 @@ class YoutubeManager(private val auriel: Auriel, key: String) {
 	fun createYoutubeAnnouncer(data: YoutubeData): YoutubeAnnouncer {
 		return auriel.youtubeDataCollection.findOneById(data._id).blockOptional().map { YoutubeAnnouncer(auriel, data._id, it, youtube) }.orElseGet {
 			auriel.updateYoutubeData(data)
-			val announcer = YoutubeAnnouncer(auriel, data._id, data, youtube)
-			return@orElseGet announcer
+			return@orElseGet YoutubeAnnouncer(auriel, data._id, data, youtube)
 		}
 	}
 	

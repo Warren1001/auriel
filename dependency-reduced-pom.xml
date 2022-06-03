@@ -24,7 +24,7 @@
       <plugin>
         <groupId>org.jetbrains.kotlin</groupId>
         <artifactId>kotlin-maven-plugin</artifactId>
-        <version>1.6.21</version>
+        <version>${kotlin.version}</version>
         <executions>
           <execution>
             <id>compile</id>
@@ -34,6 +34,9 @@
             </goals>
           </execution>
         </executions>
+        <configuration>
+          <jvmTarget>18</jvmTarget>
+        </configuration>
       </plugin>
       <plugin>
         <artifactId>maven-jar-plugin</artifactId>
@@ -89,9 +92,10 @@
   </dependencyManagement>
   <properties>
     <kotlin.code.style>official</kotlin.code.style>
+    <kotlin.version>1.7.0-RC2</kotlin.version>
     <kotlin-coroutines-version>1.6.1-native-mt</kotlin-coroutines-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <kotlin.compiler.jvmTarget>13</kotlin.compiler.jvmTarget>
-    <jackson-version>2.13.2</jackson-version>
+    <kotlin.compiler.jvmTarget>18</kotlin.compiler.jvmTarget>
+    <jackson-version>2.13.3</jackson-version>
   </properties>
 </project>

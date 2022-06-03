@@ -2,7 +2,13 @@ package io.github.warren1001.auriel.command
 
 import discord4j.common.util.Snowflake
 import discord4j.core.event.domain.message.MessageCreateEvent
+import discord4j.core.`object`.component.ActionRow
+import discord4j.core.`object`.component.Button
 import discord4j.core.`object`.entity.channel.GuildMessageChannel
+import discord4j.core.`object`.presence.Activity
+import discord4j.core.`object`.presence.ClientActivity
+import discord4j.core.`object`.presence.ClientPresence
+import discord4j.core.spec.MessageCreateSpec
 import io.github.warren1001.auriel.*
 import io.github.warren1001.auriel.user.Permission
 import io.github.warren1001.auriel.util.Filter
@@ -23,7 +29,7 @@ class CommandManager(private val auriel: Auriel) {
 			ctx.event.guild.flatMap { it.getMemberById(Snowflake.of(args[0])) }.flatMap { user -> user.updateData(auriel) { it.permission = args[1].toInt() } }
 				.ackIfSuccess(ctx.event.message)
 		}
-		registerCommand("oom", permission = Permission.MODERATOR) { ctx ->
+		registerCommand("oom") { ctx ->
 			if (ctx.arguments.isNotEmpty()) {
 				val value = ctx.arguments.toBoolean()
 				ctx.event.message.channel.ofType(GuildMessageChannel::class.java).flatMap { it.updateData(auriel) { it.setOnlyOneMessage(value) } }.ackIfSuccess(ctx.event.message)
@@ -63,6 +69,20 @@ class CommandManager(private val auriel: Auriel) {
 			ctx.event.message.channel.ofType(GuildMessageChannel::class.java).flatMap { it.updateData(auriel) { it.toggleRepost() } }
 				.ackIfSuccess(ctx.event.message)
 		}
+		registerCommand("activity", permission = Permission.MODERATOR) { ctx ->
+			val arg = ctx.arguments
+			val args = arg.split(' ', limit = 2)
+			if (args.size == 2 && args[1].isNotEmpty()) {
+				try {
+					val type = Activity.Type.valueOf(args[0].uppercase())
+					auriel.gateway.updatePresence(ClientPresence.online(ClientActivity.of(type, args[1], null)))
+						.ackIfSuccess(ctx.event.message)
+				} catch (e: IllegalArgumentException) {
+					ctx.event.message.reply("`!activity competing|listening|playing|watching <message>`")
+				}
+			} else ctx.event.message.reply("`!activity competing|listening|playing|watching <message>`")
+		}
+		
 		registerCommand("linelimit") { ctx ->
 			val arg = ctx.arguments
 			val amount = arg.toInt()
@@ -139,11 +159,17 @@ class CommandManager(private val auriel: Auriel) {
 					val removed = messages[2]
 					auriel.getGuildManager(guildId).sendRoleGiveMsg(ctx.event.message.channelId, roleId, message, given, removed).ackIfSuccess(ctx.event.message)
 				} else {
-					ctx.event.message.reply("Usage: `!rolegivemsg <role id> <message>;<given button text>;<removed button text>`")
+					ctx.event.message.reply("Usage: `!rolegivemsg <role id> <message>;<give button text>;<remove button text>`")
 				}
 			} else {
-				ctx.event.message.reply("Usage: `!rolegivemsg <role id> <message>;<given button text>;<removed button text>`")
+				ctx.event.message.reply("Usage: `!rolegivemsg <role id> <message>;<give button text>;<remove button text>`")
 			}
+		}
+		registerCommand("modal") { ctx ->
+			//ApplicationCommandRequest.builder().type(ApplicationCommandOption.Type.USER.value)
+			//auriel.gateway.restClient.applicationService.createGuildApplicationCommand(auriel.gateway.restClient.applicationId.block())
+			//https://github.com/Discord4J/Discord4J/blob/06633952314f413ff742fc02cc31620dfe3bd64f/core/src/test/java/discord4j/core/ExampleInteractions.java#L155-L161
+			ctx.event.message.channel.flatMap { it.createMessage(MessageCreateSpec.builder().addComponent(ActionRow.of(Button.primary("modal-test", "test"))).build()) }
 		}
 	}
 	

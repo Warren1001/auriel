@@ -5,20 +5,21 @@ import discord4j.core.event.domain.message.MessageCreateEvent
 import discord4j.core.`object`.component.ActionRow
 import discord4j.core.`object`.component.Button
 import discord4j.core.`object`.entity.Message
-import discord4j.core.`object`.entity.User
+import discord4j.core.`object`.entity.channel.Channel
 import discord4j.core.`object`.entity.channel.GuildMessageChannel
 import discord4j.core.spec.MessageCreateSpec
 import io.github.warren1001.auriel.*
 import io.github.warren1001.auriel.channel.ChannelData
 import io.github.warren1001.auriel.channel.ChannelManager
-import io.github.warren1001.auriel.user.Permission
+import io.github.warren1001.auriel.d2.clone.CloneQueue
 import io.github.warren1001.auriel.user.UserDataManager
-import io.github.warren1001.auriel.util.YoutubeAnnouncer
-import io.github.warren1001.auriel.util.YoutubeData
+import io.github.warren1001.auriel.youtube.YoutubeAnnouncer
+import io.github.warren1001.auriel.youtube.YoutubeData
 import org.litote.kmongo.eq
 import org.litote.kmongo.reactor.findOneById
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
+import java.time.Duration
 
 class GuildManager(private val auriel: Auriel, private val id: Snowflake) {
 	
@@ -26,12 +27,13 @@ class GuildManager(private val auriel: Auriel, private val id: Snowflake) {
 	private val httpsLinkPattern: Regex = Regex("https?://")
 	
 	val userDataManager = UserDataManager(auriel, id)
-	val guildData: GuildData = auriel.guildDataCollection.findOneById(id).blockOptional().orElseGet { GuildData(id) }
+	val guildData: GuildData = auriel.guildDataCollection.findOneById(id).blockOptional(Duration.ofMillis(5000L)).orElseGet { GuildData(id) }
+	val guildLogger: GuildLogger = GuildLogger(auriel, this)
 	var youtubeAnnouncer: YoutubeAnnouncer? = auriel.youtubeManager.getYoutubeAnnouncer(id)
 	var cloneQueue: CloneQueue? = null
 	
 	init {
-		auriel.channelDataCollection.find(ChannelData::guildId eq id).toFlux().subscribe { channelManagers[it._id] = ChannelManager(auriel, it._id, it.guildId, it) }
+		auriel.channelDataCollection.find(ChannelData::guildId eq id).toFlux().async().subscribe { channelManagers[it._id] = ChannelManager(auriel, it._id, it.guildId, it) }
 	}
 	
 	fun startCloneQueue(message: Message, helperChannelId: Snowflake, requestChannelId: Snowflake): Mono<out Any> {
@@ -58,9 +60,10 @@ class GuildManager(private val auriel: Auriel, private val id: Snowflake) {
 	
 	fun handleMessageCreate(event: MessageCreateEvent): Mono<out Any> {
 		return event.message.authorAsMember.flatMap { member ->
+			println("GuildManager: handleMessageCreate - start")
 			val content = event.message.content
 			val filters = guildData.filters.filter { it.containsMatchIn(content) }
-			member.getData(auriel).filter { !it.hasPermission(Permission.MODERATOR) }.flatMap {
+			val a = if (!userDataManager.isModerator(member.id)) {
 				if (filters.isNotEmpty()) {
 					val blacklistedStrings = filters.filter { it.containsMatchIn(content) }.joinToString(separator = ", ") { it.getAllMatchedStrings(content) }
 					if (filters.any { !it.shouldReplace() } || !getChannelManager(event.message.channelId).allowsReposting()) {
@@ -74,40 +77,29 @@ class GuildManager(private val auriel: Auriel, private val id: Snowflake) {
 					} else {
 						var newContent = content
 						filters.forEach { newContent = it.replace(newContent) }
-						Mono.`when`(
-							event.message.delAndLog(auriel, "swearing: $blacklistedStrings").async(),
-							event.message.channel.flatMap { it.message("${member.mention} said (censored): $newContent") }.async()
-						)
+						event.message.channel.flatMap { it.message("${member.mention} said (censored): $newContent") }.flatMap {
+							event.message.delAndLog(auriel, "swearing: $blacklistedStrings", repostId = it.id)
+						}
 					}
-				} else if (guildData.muteRoleId != null && content.contains(httpsLinkPattern) && content.contains("@everyone", true)) {
+				} else if (guildData.muteRoleId != null && content.contains(httpsLinkPattern) && (content.contains("@everyone", true) || content.contains("nitro", true))) {
 					Mono.`when`(
-						member.addRole(guildData.muteRoleId!!, "Suspected scammer").async(),
-						event.message.delAndLog(auriel, "suspected scammer, muted").async(),
+						member.addRole(guildData.muteRoleId!!, "Suspected bot").async(),
+						event.message.delAndLog(auriel, "suspected bot, muted").async(),
 						member.dm(
-							"You have been muted on MrLlamaSC's Discord for posting what is seemingly a scam website link.\n" +
+							"You have been muted in MrLlamaSC's Discord for what is seemingly malicious bot behavior.\n" +
 									"If this is an error, please contact ${auriel.warren.mention} or an online moderator to be unmuted."
 						).async()
 					)
 				} else getChannelManager(event.message.channelId).handleMessageCreate(event)
-			}
+			} else event.message.channel.filter { it.type == Channel.Type.GUILD_NEWS }.flatMap { event.message.publish() }
+			println("GuildManager: handleMessageCreate - end")
+			return@flatMap a
 		}
 		
 	}
 	
 	fun startYoutubeAnnouncer(guildId: Snowflake, playlistId: String, roleId: Snowflake, channelId: Snowflake, roleMessageChannelId: Snowflake) {
 		youtubeAnnouncer = auriel.youtubeManager.createYoutubeAnnouncer(YoutubeData(guildId, playlistId, roleId, channelId, roleMessageChannelId))
-	}
-	
-	fun log(author: User, channel: GuildMessageChannel, header: String, reason: String, originalMessage: String): Mono<out Any> {
-		return if (guildData.logChannelId != null) auriel.gateway.getChannelById(guildData.logChannelId!!).ofType(GuildMessageChannel::class.java)
-			.flatMap {
-				it.message(
-					"__**$header**__\n" +
-							"${author.mention} in ${channel.mention} for **$reason**\n" +
-							"```${originalMessage.replace("```", "`\\`\\`")}```"
-				)
-			}
-		else NOTHING
 	}
 	
 	fun sendRoleGiveMsg(channelId: Snowflake, roleId: Snowflake, message: String, given: String, removed: String): Mono<Message> {
