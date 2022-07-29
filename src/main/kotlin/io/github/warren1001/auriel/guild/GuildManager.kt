@@ -20,11 +20,15 @@ import org.litote.kmongo.reactor.findOneById
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toFlux
 import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 class GuildManager(private val auriel: Auriel, private val id: Snowflake) {
 	
 	private val channelManagers = mutableMapOf<Snowflake, ChannelManager>()
 	private val httpsLinkPattern: Regex = Regex("https?://")
+	
+	private val discordBotSpam: ConcurrentMap<Snowflake, Message> = ConcurrentHashMap()
 	
 	val userDataManager = UserDataManager(auriel, id)
 	val guildData: GuildData = auriel.guildDataCollection.findOneById(id).blockOptional(Duration.ofMillis(5000L)).orElseGet { GuildData(id) }
@@ -63,11 +67,11 @@ class GuildManager(private val auriel: Auriel, private val id: Snowflake) {
 			println("GuildManager: handleMessageCreate - start")
 			val content = event.message.content
 			val filters = guildData.filters.filter { it.containsMatchIn(content) }
-			val a = if (!userDataManager.isModerator(member.id)) {
+			if (!userDataManager.isModerator(member.id)) {
 				if (filters.isNotEmpty()) {
 					val blacklistedStrings = filters.filter { it.containsMatchIn(content) }.joinToString(separator = ", ") { it.getAllMatchedStrings(content) }
 					if (filters.any { !it.shouldReplace() } || !getChannelManager(event.message.channelId).allowsReposting()) {
-						Mono.`when`(
+						return@flatMap Mono.`when`(
 							event.message.delAndLog(auriel, "swearing: $blacklistedStrings").async(),
 							member.dm(
 								"Your message was deleted for using a not-family-friendly word: $blacklistedStrings\n" +
@@ -77,23 +81,53 @@ class GuildManager(private val auriel: Auriel, private val id: Snowflake) {
 					} else {
 						var newContent = content
 						filters.forEach { newContent = it.replace(newContent) }
-						event.message.channel.flatMap { it.message("${member.mention} said (censored): $newContent") }.flatMap {
+						return@flatMap event.message.channel.flatMap { it.message("${member.mention} said (censored): $newContent") }.flatMap {
 							event.message.delAndLog(auriel, "swearing: $blacklistedStrings", repostId = it.id)
 						}
 					}
-				} else if (guildData.muteRoleId != null && content.contains(httpsLinkPattern) && (content.contains("@everyone", true) || content.contains("nitro", true))) {
-					Mono.`when`(
-						member.addRole(guildData.muteRoleId!!, "Suspected bot").async(),
-						event.message.delAndLog(auriel, "suspected bot, muted").async(),
-						member.dm(
-							"You have been muted in MrLlamaSC's Discord for what is seemingly malicious bot behavior.\n" +
-									"If this is an error, please contact ${auriel.warren.mention} or an online moderator to be unmuted."
-						).async()
-					)
-				} else getChannelManager(event.message.channelId).handleMessageCreate(event)
-			} else event.message.channel.filter { it.type == Channel.Type.GUILD_NEWS }.flatMap { event.message.publish() }
+				} else if (
+					guildData.muteRoleId != null && content.contains(httpsLinkPattern) &&
+					((content.contains("@everyone", true) || content.contains("nitro", true)) || content.contains("discord.gg"))
+				) {
+					if (content.contains("@everyone", true) || content.contains("nitro", true)) {
+						discordBotSpam.remove(member.id)
+						return@flatMap Mono.`when`(
+							member.addRole(guildData.muteRoleId!!, "Suspected bot").async(),
+							event.message.delAndLog(auriel, "suspected bot, muted").async(),
+							member.dm(
+								"You have been muted in MrLlamaSC's Discord for what is seemingly malicious bot behavior.\n" +
+										"If this is an error, please contact ${auriel.warren.mention} or an online moderator to be unmuted."
+							).async()
+						)
+					} else if (discordBotSpam.containsKey(member.id)) {
+						val msg = discordBotSpam[member.id]!!
+						val timeSince = event.message.timestamp.toEpochMilli() - msg.timestamp.toEpochMilli()
+						if (timeSince < 5 * 1000L) {
+							discordBotSpam.remove(member.id)
+							return@flatMap Mono.`when`(
+								msg.del().async(),
+								member.addRole(guildData.muteRoleId!!, "Suspected bot").async(),
+								event.message.delAndLog(auriel, "suspected bot, muted").async(),
+								member.dm(
+									"You have been muted in MrLlamaSC's Discord for what is seemingly malicious bot behavior.\n" +
+											"If this is an error, please contact ${auriel.warren.mention} or an online moderator to be unmuted."
+								).async()
+							)
+						} else {
+							discordBotSpam[member.id] = event.message
+						}
+					} else {
+						discordBotSpam[member.id] = event.message
+					}
+				}
+				if (discordBotSpam.containsKey(member.id)) {
+					val timeSince = event.message.timestamp.toEpochMilli() - discordBotSpam[member.id]!!.timestamp.toEpochMilli()
+					if (timeSince > 5 * 1000L) discordBotSpam.remove(member.id)
+				}
+				return@flatMap getChannelManager(event.message.channelId).handleMessageCreate(event)
+			}
 			println("GuildManager: handleMessageCreate - end")
-			return@flatMap a
+			return@flatMap event.message.channel.filter { it.type == Channel.Type.GUILD_NEWS }.flatMap { event.message.publish() }
 		}
 		
 	}
