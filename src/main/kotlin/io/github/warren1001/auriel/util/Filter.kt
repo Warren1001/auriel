@@ -1,6 +1,6 @@
 package io.github.warren1001.auriel.util
 
-data class Filter(private val regex: Regex, val replacement: String = "") {
+data class Filter(val regex: Regex, val replacement: String = "") {
 	
 	fun containsMatchIn(input: CharSequence) = regex.containsMatchIn(input)
 	

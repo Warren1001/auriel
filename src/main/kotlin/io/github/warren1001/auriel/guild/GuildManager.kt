@@ -87,9 +87,9 @@ class GuildManager(private val auriel: Auriel, private val id: Snowflake) {
 					}
 				} else if (
 					guildData.muteRoleId != null && content.contains(httpsLinkPattern) &&
-					((content.contains("@everyone", true) || content.contains("nitro", true)) || content.contains("discord.gg"))
+					((content.contains("@everyone", true) || content.contains("nitro", true)) || content.contains("rust-event.com", true) || content.contains("discord.gg", true))
 				) {
-					if (content.contains("@everyone", true) || content.contains("nitro", true)) {
+					if (content.contains("@everyone", true) || content.contains("nitro", true) || content.contains("rust-event.com", true)) {
 						discordBotSpam.remove(member.id)
 						return@flatMap Mono.`when`(
 							member.addRole(guildData.muteRoleId!!, "Suspected bot").async(),

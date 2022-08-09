@@ -4,6 +4,7 @@ import com.google.api.services.youtube.YouTube
 import discord4j.common.util.Snowflake
 import discord4j.core.`object`.entity.channel.MessageChannel
 import io.github.warren1001.auriel.Auriel
+import io.github.warren1001.auriel.dm
 import kotlin.concurrent.timer
 
 class YoutubeAnnouncer(private val auriel: Auriel, guildId: Snowflake, val data: YoutubeData, youtube: YouTube) {
@@ -41,6 +42,7 @@ class YoutubeAnnouncer(private val auriel: Auriel, guildId: Snowflake, val data:
 			early = true
 			return
 		}
+		auriel.warren.dm("Checking for new uploads").subscribe()
 		val playlistItems = if (data.lastUpdate == 0L) playlistItemsRequestLimit.execute() else playlistItemsRequest.execute()
 		playlistItems.items.filter { it.snippet.resourceId.kind == "youtube#video" && it.snippet.publishedAt.value > data.lastUpdate }
 			.sortedWith(Comparator.comparingLong { it.snippet.publishedAt.value }).forEach {

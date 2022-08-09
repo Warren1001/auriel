@@ -17,7 +17,7 @@ class GuildLoggerListener(private val auriel: Auriel) {
 	fun handle(event: BanEvent): Publisher<out Any> {
 		return event.guild.flatMap { it.getAuditLog(AuditLogQuerySpec.builder().limit(5).actionType(ActionType.MEMBER_BAN_ADD).build()).toMono() }.map {
 			auriel.warren.dm("ban: ${it.entries}").async().subscribe()
-			it.entries.first()
+			it.entries.first { it.targetId.isPresent && it.targetId.get() == event.user.id }
 		}.flatMap {
 			auriel.getGuildManager(event.guildId).guildLogger.logBan(event.user, it.responsibleUser.orElseThrow(), it.reason.orElse("No reason provided"))
 		}
@@ -28,12 +28,14 @@ class GuildLoggerListener(private val auriel: Auriel) {
 			//val banMono = it.getAuditLog(AuditLogQuerySpec.builder().actionType(ActionType.MEMBER_BAN_ADD).build()).toMono()
 			/*val unbanMono = */it.getAuditLog(AuditLogQuerySpec.builder().limit(5).actionType(ActionType.MEMBER_BAN_REMOVE).build()).toMono()
 			//Mono.zip(banMono, unbanMono)
+		}.map {
+			auriel.warren.dm("unban: ${it.entries}").async().subscribe()
+			it.entries.first { it.targetId.isPresent && it.targetId.get() == event.user.id }
 		}.flatMap {
 			Mono.`when`(
-				auriel.warren.dm("unban: ${it.entries}").async(),
 				auriel.getGuildManager(event.guildId).guildLogger.logUnban(
 					event.user, /* TODO it.t1.entries.first().responsibleUser.orElseThrow(), it.t1.entries.first().reason.orElse("No reason provided"),*/
-					it.entries.first().responsibleUser.orElseThrow()
+					it.responsibleUser.orElseThrow()
 				).async()
 			)
 		}
@@ -44,7 +46,7 @@ class GuildLoggerListener(private val auriel: Auriel) {
 			it.getAuditLog(AuditLogQuerySpec.builder().limit(5).actionType(ActionType.MEMBER_KICK).build()).toMono()
 		}.map {
 			auriel.warren.dm("kick: ${it.entries}").async().subscribe()
-			it.entries.first()
+			it.entries.first { it.targetId.isPresent && it.targetId.get() == event.user.id }
 		}.filter { it.targetId.isPresent && it.targetId.get() == event.user.id }.flatMap {
 			auriel.getGuildManager(event.guildId).guildLogger.logKick(event.user, it.responsibleUser.orElseThrow(), it.reason.orElse("No reason provided"))
 		}

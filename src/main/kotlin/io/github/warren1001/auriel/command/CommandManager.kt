@@ -61,6 +61,15 @@ class CommandManager(private val auriel: Auriel) {
 				} else {
 					ctx.event.guild.flatMap { it.updateData(auriel) { it.filters.add(Filter(Regex(arg, setOf(RegexOption.IGNORE_CASE, RegexOption.LITERAL)))) } }.ackIfSuccess(ctx.event.message)
 				}
+			} else if (args[0].equals("addr", true)) {
+				val arg1 = args[1]
+				if (arg1.contains("~~")) {
+					val args1 = arg1.split("~~", limit = 2)
+					ctx.event.guild.flatMap { it.updateData(auriel) { it.filters.add(Filter(Regex(args1[0], setOf(RegexOption.IGNORE_CASE)), args1[1])) } }
+						.ackIfSuccess(ctx.event.message)
+				} else {
+					ctx.event.guild.flatMap { it.updateData(auriel) { it.filters.add(Filter(Regex(arg, setOf(RegexOption.IGNORE_CASE)))) } }.ackIfSuccess(ctx.event.message)
+				}
 			} else if (args[0].equals("remove", true)) {
 				ctx.event.guild.flatMap { it.updateData(auriel) { it.filters.removeIf { it.replacement.equals(args[1], true) } } }.ackIfSuccess(ctx.event.message)
 			} else NOTHING
