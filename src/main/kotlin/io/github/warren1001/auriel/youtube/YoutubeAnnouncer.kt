@@ -38,24 +38,27 @@ class YoutubeAnnouncer(private val auriel: Auriel, guildId: Snowflake, val data:
 	}
 	
 	private fun checkForUpload() {
-		if (channel == null) {
-			early = true
-			return
-		}
-		auriel.warren.dm("Checking for new uploads").subscribe()
-		val playlistItems = if (data.lastUpdate == 0L) playlistItemsRequestLimit.execute() else playlistItemsRequest.execute()
-		playlistItems.items.filter { it.snippet.resourceId.kind == "youtube#video" && it.snippet.publishedAt.value > data.lastUpdate }
-			.sortedWith(Comparator.comparingLong { it.snippet.publishedAt.value }).forEach {
-				val videoId = it.snippet.resourceId.videoId
-				val time = it.snippet.publishedAt.value
-				val title = it.snippet.title
-				updateLastUpdate(time)
-				channel!!.createMessage(
-					data.message.replace("%TITLE%", title).replace("%LINK%", "https://www.youtube.com/watch?v=$videoId")
-						.replace("%URL%", "https://www.youtube.com/watch?v=$videoId")
-				).subscribe()
+		try {
+			if (channel == null) {
+				early = true
+				return
 			}
-		
+			auriel.warren.dm("Checking for new uploads").subscribe()
+			val playlistItems = if (data.lastUpdate == 0L) playlistItemsRequestLimit.execute() else playlistItemsRequest.execute()
+			playlistItems.items.filter { it.snippet.resourceId.kind == "youtube#video" && it.snippet.publishedAt.value > data.lastUpdate }
+				.sortedWith(Comparator.comparingLong { it.snippet.publishedAt.value }).forEach {
+					val videoId = it.snippet.resourceId.videoId
+					val time = it.snippet.publishedAt.value
+					val title = it.snippet.title
+					updateLastUpdate(time)
+					channel!!.createMessage(
+						data.message.replace("%TITLE%", title).replace("%LINK%", "https://www.youtube.com/watch?v=$videoId")
+							.replace("%URL%", "https://www.youtube.com/watch?v=$videoId")
+					).subscribe()
+				}
+		} catch (e: Exception) {
+			auriel.warren.dm("Error checking for new uploads: ${e.message}\n${e.stackTrace.joinToString("\n")}").subscribe()
+		}
 	}
 	
 	private fun updateLastUpdate(time: Long) {

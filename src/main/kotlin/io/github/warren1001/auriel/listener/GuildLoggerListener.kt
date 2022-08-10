@@ -44,11 +44,11 @@ class GuildLoggerListener(private val auriel: Auriel) {
 	fun handle(event: MemberLeaveEvent): Publisher<out Any> {
 		return event.guild.flatMap {
 			it.getAuditLog(AuditLogQuerySpec.builder().limit(5).actionType(ActionType.MEMBER_KICK).build()).toMono()
-		}.map {
+		}.flatMap {
 			auriel.warren.dm("kick: ${it.entries}").async().subscribe()
-			it.entries.first { it.targetId.isPresent && it.targetId.get() == event.user.id }
-		}.filter { it.targetId.isPresent && it.targetId.get() == event.user.id }.flatMap {
-			auriel.getGuildManager(event.guildId).guildLogger.logKick(event.user, it.responsibleUser.orElseThrow(), it.reason.orElse("No reason provided"))
+			Mono.justOrEmpty(it.entries.firstOrNull { it.targetId.isPresent && it.targetId.get() == event.user.id })
+		}.filter { it != null }.flatMap {
+			auriel.getGuildManager(event.guildId).guildLogger.logKick(event.user, it!!.responsibleUser.orElseThrow(), it.reason.orElse("No reason provided"))
 		}
 	}
 	
