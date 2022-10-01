@@ -2,7 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.warren1001</groupId>
-  <artifactId>auriel</artifactId>
+  <artifactId>auriel4</artifactId>
   <name>Auriel</name>
   <version>1.0.0</version>
   <build>
@@ -78,24 +78,18 @@
       <id>google-api-services</id>
       <url>https://google-api-client-libraries.appspot.com/mavenrepo</url>
     </repository>
+    <repository>
+      <id>jitpack</id>
+      <name>jitpack</name>
+      <url>https://jitpack.io/</url>
+    </repository>
   </repositories>
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>io.projectreactor</groupId>
-        <artifactId>reactor-bom</artifactId>
-        <version>2020.0.16</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
   <properties>
     <kotlin.code.style>official</kotlin.code.style>
-    <kotlin.version>1.7.0-RC2</kotlin.version>
-    <kotlin-coroutines-version>1.6.1-native-mt</kotlin-coroutines-version>
+    <kotlin.version>1.7.10</kotlin.version>
+    <kotlin-coroutines-version>1.6.4</kotlin-coroutines-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <kotlin.compiler.jvmTarget>18</kotlin.compiler.jvmTarget>
-    <jackson-version>2.13.3</jackson-version>
+    <jackson-version>2.13.4</jackson-version>
   </properties>
 </project>
