@@ -101,7 +101,7 @@ class AGuildMessageChannel {
 		if (data.maxMessageAge > 0L && data.messageAgeInterval > 0L) {
 			messageAgeTimer = timer("$id-messageAge", true, 60 * 1000, data.messageAgeInterval) {
 				MessageHistory.getHistoryBefore(auriel.jda.getTextChannelById(id)!!, TimeUtil.getDiscordTimestamp(System.currentTimeMillis() - data.maxMessageAge).toString())
-						.queue { it.channel.asGuildMessageChannel().purgeMessages(it.retrievedHistory.filter { !it.member!!.hasPermission(Permission.BAN_MEMBERS) }) }
+						.queue { it.channel.asGuildMessageChannel().purgeMessages(it.retrievedHistory.filter { it.member != null && !it.member!!.hasPermission(Permission.BAN_MEMBERS) }) }
 			}
 		}
 	}
@@ -110,7 +110,7 @@ class AGuildMessageChannel {
 		if (data.onlyOneMessage) {
 			MessageHistory.getHistoryFromBeginning(auriel.jda.getTextChannelById(id)!!).queue { history ->
 				history.channel.asTextChannel().purgeMessages(history.retrievedHistory.filter {
-					if (it.member!!.hasPermission(Permission.BAN_MEMBERS)) {
+					if (it.author.isBot || (it.member != null && it.member!!.hasPermission(Permission.BAN_MEMBERS))) {
 						false
 					} else if (lastMemberMessage.contains(it.author)) {
 						true
