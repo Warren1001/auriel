@@ -5,13 +5,19 @@ import dev.minn.jda.ktx.interactions.commands.option
 import dev.minn.jda.ktx.interactions.commands.restrict
 import dev.minn.jda.ktx.interactions.commands.subcommand
 import dev.minn.jda.ktx.interactions.commands.upsertCommand
+import dev.minn.jda.ktx.interactions.components.SelectOption
 import dev.minn.jda.ktx.interactions.components.replyModal
+import dev.minn.jda.ktx.messages.MessageCreate
 import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.Auriel
+import io.github.warren1001.auriel.d2.CloneHandler
+import io.github.warren1001.auriel.d2.TerrorZone
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Activity
 import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
+import net.dv8tion.jda.api.interactions.components.ActionRow
+import net.dv8tion.jda.api.interactions.components.buttons.Button
 
 class Commands(private val auriel: Auriel) {
 	
@@ -42,7 +48,7 @@ class Commands(private val auriel: Auriel) {
 		commandActions["youtube"] = {
 			val playlistId = it.getOption("playlist-id")?.asString!!
 			val message = it.getOption("message")?.asString!!
-			val guild = auriel.guilds.getGuild(it.guild!!.id)!!
+			val guild = auriel.guilds.getGuild(it.guild!!.id)
 			guild.startYoutubeAnnouncer(playlistId, message, it.channel.asGuildMessageChannel())
 			it.reply_("Youtube Announcer started.").queue()
 		}
@@ -54,7 +60,7 @@ class Commands(private val auriel: Auriel) {
 		commandActions["messageage"] = {
 			val age = it.getOption("age")?.asLong!!
 			val interval = it.getOption("interval")?.asLong!!
-			val guild = auriel.guilds.getGuild(it.guild!!.id)!!
+			val guild = auriel.guilds.getGuild(it.guild!!.id)
 			guild.getGuildMessageChannel(it.channel.asGuildMessageChannel()).setMaxMessageAge(age, interval)
 			it.reply_("Message age and interval set.").queue()
 		}
@@ -65,7 +71,7 @@ class Commands(private val auriel: Auriel) {
 		}.queue()
 		commandActions["onlyonemessage"] = {
 			val enabled = it.getOption("enabled")?.asBoolean!!
-			val guild = auriel.guilds.getGuild(it.guild!!.id)!!
+			val guild = auriel.guilds.getGuild(it.guild!!.id)
 			guild.getGuildMessageChannel(it.channel.asGuildMessageChannel()).setOnlyOneMessage(enabled)
 			it.reply_("Only one message is ${if (enabled) "enabled" else "disabled"}.").queue()
 		}
@@ -75,7 +81,7 @@ class Commands(private val auriel: Auriel) {
 		}.queue()
 		commandActions["allowbotrepost"] = {
 			val enabled = it.getOption("enabled")?.asBoolean!!
-			val guild = auriel.guilds.getGuild(it.guild!!.id)!!
+			val guild = auriel.guilds.getGuild(it.guild!!.id)
 			guild.getGuildMessageChannel(it.channel.asGuildMessageChannel()).setAllowReposts(enabled)
 			it.reply_("Bot reposts are ${if (enabled) "enabled" else "disabled"}.").queue()
 		}
@@ -85,7 +91,7 @@ class Commands(private val auriel: Auriel) {
 		}.queue()
 		commandActions["linelimit"] = {
 			val limit = it.getOption("limit")?.asInt!!
-			val guild = auriel.guilds.getGuild(it.guild!!.id)!!
+			val guild = auriel.guilds.getGuild(it.guild!!.id)
 			guild.getGuildMessageChannel(it.channel.asGuildMessageChannel()).setLineLimit(limit)
 			it.reply_("Line limit set to $limit.").queue()
 		}
@@ -98,7 +104,7 @@ class Commands(private val auriel: Auriel) {
 			val role = it.getOption("role")?.asRole!!
 			val roleGiveMsg = it.getOption("give-button-text")?.asString!!
 			val roleRemoveMsg = it.getOption("remove-button-text")?.asString!!
-			val guild = auriel.guilds.getGuild(it.guild!!.id)!!
+			val guild = auriel.guilds.getGuild(it.guild!!.id)
 			guild.sendRoleGiveMsg(it.channel.asGuildMessageChannel(), role, message, roleGiveMsg, roleRemoveMsg)
 			it.reply_("Role give message sent.").queue()
 		}
@@ -110,7 +116,7 @@ class Commands(private val auriel: Auriel) {
 			option<String>("remove-button-text", "The text on the remove role button.", required = true)
 		}.queue()
 		registerCommand("setlogchannel", "Sets the server's bot logging channel.", permission = Permission.ADMINISTRATOR) {
-			val guild = auriel.guilds.getGuild(it.guild!!.id)!!
+			val guild = auriel.guilds.getGuild(it.guild!!.id)
 			guild.setLoggingChannel(it.channel.asGuildMessageChannel())
 			it.reply_("Log channel set to this channel.").queue()
 		}
@@ -140,7 +146,7 @@ class Commands(private val auriel: Auriel) {
 			// TODO list?
 		}.queue()
 		commandActions["filter"] = {
-			val guild = auriel.guilds.getGuild(it.guild!!.id)!!
+			val guild = auriel.guilds.getGuild(it.guild!!.id)
 			val channel = guild.getGuildMessageChannel(it.channel.asGuildMessageChannel())
 			when (it.subcommandName) {
 				"server-add" -> {
@@ -208,6 +214,72 @@ class Commands(private val auriel: Auriel) {
 				}
 			}
 		}
+		registerCommand("clone", "Request help with Diablo Clone (PC Only).", true, permission = Permission.MESSAGE_SEND) {
+			CloneHandler(auriel.guilds.getGuild(it.guild!!.id)).openRequestHelpModal(it)
+		}
+		commandActions["tz"] = {
+			val msg = it.getOption("message")?.asString ?: "%ROLE% **%ZONE%** is/are Terrorized!"
+			val tzs = TerrorZone.values().toList()
+			auriel.specialMessageHandler.replyChainMessageCallback(it.user, tzs, "What role do you want to use for the Terror Zone **%s**?", "Done setting up roles!",
+				{ _, message -> message.mentions.roles.firstOrNull() }, TerrorZone::zoneName, { messageCreateData, callback -> it.reply_(messageCreateData.content).queue { callback.invoke(it) } }
+			) { data ->
+				auriel.guilds.getGuild(it.guild!!.id).setupTZ(it.channel.id, msg, data)
+			}
+		}
+		auriel.jda.upsertCommand("tz", "Sets up Terror Zone notifications in this channel + roles.") {
+			restrict(guild = true, perm = Permission.ADMINISTRATOR)
+			option<String>("message", "TZ announce msg. %ROLE% and %ZONE% are the fill names", required = false)
+		}.queue()
+		registerCommand("setuptz", "The receiving channel for TZ data.", true, permission = Permission.ADMINISTRATOR) {
+			auriel.guilds.tzTracker.setChannel(it.channel.id)
+			it.reply_("Set the TZ data channel.").queue()
+		}
+		commandActions["crosspost"] = {
+			val crosspost = it.getOption("crosspost")!!.asBoolean
+			auriel.guilds.getGuild(it.guild!!.id).setCrosspost(crosspost)
+			it.reply_("Auto-crossposting is now ${if (crosspost) "enabled" else "disabled"}.").queue()
+		}
+		auriel.jda.upsertCommand("crosspost", "Enable or disable auto-crossposting.") {
+			restrict(guild = true, perm = Permission.ADMINISTRATOR)
+			option<Boolean>("crosspost", "Enable or disable auto-crossposting.", required = true)
+		}.queue()
+		commandActions["tznotify"] = { // this looks so ugly
+			val guild = auriel.guilds.getGuild(it.guild!!.id)
+			if (guild.tzGuildData == null) {
+				it.reply_("This feature has not been setup yet.").queue()
+			} else {
+				val roleIds = guild.tzGuildData!!.roleIds!!
+				val a: List<Map.Entry<TerrorZone, String>> = roleIds.entries.toList()
+				val b: List<MutableList<Map.Entry<TerrorZone, String>>> = listOf(mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf())
+				a.forEach { b[it.key.act - 1].add(it) }
+				var z = 0
+				val messageCreateData = auriel.specialMessageHandler.replyMultiSelectMenuMessage(it.user, b, "What role do you want to use for the Terror Zones in **%s**?",
+					"You will now receive notifications for the selected TZs.", false, filter = { list, i -> (list[0].key.act - 1) == i }, mustChoose = false,
+					optionConverter = { tz -> tz.map { SelectOption(it.key.zoneName, "${it.value}-${z++}") } },
+					display = { list -> "Act ${list[0].key.act}" }
+				) { data ->
+					val addRoles = data.map { it.value }.flatten().map { if (it.contains("-")) it.substringBefore("-") else it }.map { auriel.jda.getRoleById(it)!! }.toSet()
+					val removeRoles = roleIds.values.map { auriel.jda.getRoleById(it)!! }.toSet() - addRoles
+					it.guild!!.modifyMemberRoles(it.member!!, addRoles, removeRoles).queue()
+				}
+				it.reply_(messageCreateData.content, components = messageCreateData.components).queue()
+			}
+		}
+		auriel.jda.upsertCommand("tznotify", "Choose the areas you want to be notified for.") {
+			restrict(guild = true, perm = Permission.MESSAGE_SEND)
+		}.queue()
+		commandActions["tzrolebutton"] = {
+			val message = it.getOption("message")!!.asString
+			val buttonText = it.getOption("button")!!.asString
+			val createMessageData = MessageCreate(message, components = listOf(ActionRow.of(Button.primary("tzrolebutton", buttonText))))
+			it.channel.sendMessage(createMessageData).queue()
+			it.reply_("Done!").queue()
+		}
+		auriel.jda.upsertCommand("tzrolebutton", "Choose the areas you want to be notified for.") {
+			restrict(guild = true, perm = Permission.BAN_MEMBERS)
+			option<String>("message", "The message to use for the button.", required = true)
+			option<String>("button", "The text on the button itself", required = true)
+		}.queue()
 	}
 	
 	fun registerCommand(name: String, description: String, guildOnly: Boolean = true, permission: Permission = Permission.MESSAGE_SEND, action: (SlashCommandInteractionEvent) -> Unit) {

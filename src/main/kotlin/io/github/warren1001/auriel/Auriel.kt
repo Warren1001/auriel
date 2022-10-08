@@ -11,11 +11,13 @@ import dev.minn.jda.ktx.messages.SendDefaults
 import io.github.warren1001.auriel.command.Commands
 import io.github.warren1001.auriel.eventhandler.ButtonInteractionHandler
 import io.github.warren1001.auriel.guild.Guilds
+import io.github.warren1001.auriel.util.SpecialMessageHandler
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.User
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
 import net.dv8tion.jda.api.events.ReadyEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
+import net.dv8tion.jda.api.events.interaction.component.SelectMenuInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.exceptions.ErrorHandler
 import net.dv8tion.jda.api.requests.ErrorResponse
@@ -34,19 +36,21 @@ class Auriel(val jda: JDA, youtubeToken: String) {
 	}
 	
 	private val mongo = KMongo.createClient()
-	private val buttonInteractionHandler = ButtonInteractionHandler()
+	private val buttonInteractionHandler = ButtonInteractionHandler(this)
 	
 	val youtube: YouTube = YouTube.Builder(GoogleNetHttpTransport.newTrustedTransport(), GsonFactory.getDefaultInstance()) {}.setApplicationName("new-video-checker")
 		.setYouTubeRequestInitializer(YouTubeRequestInitializer(youtubeToken)).build()
 	val database: MongoDatabase = mongo.getDatabase("test2")
 	val commands = Commands(this)
 	val guilds = Guilds(this)
+	val specialMessageHandler = SpecialMessageHandler(this)
 	
 	init {
 		SendDefaults.ephemeral = true
 		UpdateConfiguration.updateOnlyNotNullProperties = true
-		jda.listener<MessageReceivedEvent> { guilds.handleMessageReceived(it) }
+		jda.listener<MessageReceivedEvent> { specialMessageHandler.handleMessageReceived(it) }
 		jda.listener<ButtonInteractionEvent> { buttonInteractionHandler.handle(it) }
+		jda.listener<SelectMenuInteractionEvent> { specialMessageHandler.handleSelectMenu(it) }
 	}
 	
 	fun shutdown() {

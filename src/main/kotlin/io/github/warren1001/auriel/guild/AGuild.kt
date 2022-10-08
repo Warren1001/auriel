@@ -4,9 +4,12 @@ import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.UpdateOptions
 import dev.minn.jda.ktx.messages.Embed
 import dev.minn.jda.ktx.messages.MessageCreateBuilder
+import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.*
 import io.github.warren1001.auriel.channel.text.AGuildMessageChannel
 import io.github.warren1001.auriel.channel.text.AGuildMessageData
+import io.github.warren1001.auriel.d2.TerrorZone
+import io.github.warren1001.auriel.d2.TerrorZoneTrackerGuildData
 import io.github.warren1001.auriel.util.filter.RepeatedSpamFilter
 import io.github.warren1001.auriel.util.filter.SpamFilter
 import io.github.warren1001.auriel.util.filter.WordFilter
@@ -19,6 +22,7 @@ import net.dv8tion.jda.api.entities.MessageEmbed
 import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.channel.ChannelType
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
+import net.dv8tion.jda.api.events.interaction.component.SelectMenuInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.interactions.components.ActionRow
 import net.dv8tion.jda.api.interactions.components.buttons.Button
@@ -34,6 +38,7 @@ class AGuild {
 	
 	val data: AGuildData
 	val textChannelDataCollection: MongoCollection<AGuildMessageData>
+	var tzGuildData: TerrorZoneTrackerGuildData? = null
 	
 	private var youtubeAnnouncer: YoutubeAnnouncer? = null
 	private val guildMessageChannels = mutableMapOf<String, AGuildMessageChannel>()
@@ -43,14 +48,16 @@ class AGuild {
 		this.id = id
 		data = guilds.guildDataCollection.findOneById(id) ?: AGuildData(id)
 		textChannelDataCollection = auriel.database.getCollection("$id-textChannels", AGuildMessageData::class.java)
+		tzGuildData = guilds.tzTrackerRoleCollection.findOneById(id)
 		setup()
 	}
 	
-	constructor(auriel: Auriel, id: String, data: AGuildData) {
+	constructor(auriel: Auriel, id: String, guilds: Guilds, data: AGuildData) {
 		this.auriel = auriel
 		this.id = id
 		this.data = data
 		textChannelDataCollection = auriel.database.getCollection("$id-textChannels", AGuildMessageData::class.java)
+		tzGuildData = guilds.tzTrackerRoleCollection.findOneById(id)
 		setup()
 	}
 	
@@ -74,11 +81,30 @@ class AGuild {
 		saveData()
 	}
 	
+	private fun saveTZGuildData() {
+		if (tzGuildData != null) auriel.guilds.tzTrackerRoleCollection.updateOne(tzGuildData!!, UpdateOptions().upsert(true))
+	}
+	
 	fun saveData() = auriel.guilds.guildDataCollection.updateOne(data, options = UpdateOptions().upsert(true))
 	
 	fun setLoggingChannel(channel: GuildMessageChannel) {
 		data.logChannelId = channel.id
 		saveData()
+	}
+	
+	fun setCrosspost(crosspost: Boolean) {
+		data.crosspost = crosspost
+		saveData()
+	}
+	
+	fun setupTZ(channelId: String, format: String, roles: Map<TerrorZone, Role?>) {
+		if (tzGuildData == null) tzGuildData = TerrorZoneTrackerGuildData(id)
+		tzGuildData!!.channelId = channelId
+		tzGuildData!!.messageTemplate = format
+		tzGuildData!!.roleIds = roles.filterValues { it != null }.mapValues { it.value!!.id }
+		tzGuildData!!.roleMentions = roles.mapValues { it.value?.asMention ?: "?" }
+		auriel.guilds.tzTracker.addGuild(id)
+		saveTZGuildData()
 	}
 	
 	fun handleMessageReceived(event: MessageReceivedEvent) {
@@ -128,10 +154,17 @@ class AGuild {
 			
 		}
 		
-		if (event.channelType == ChannelType.NEWS) event.message.crosspost().queue()
+		if (event.channelType == ChannelType.NEWS && data.crosspost) event.message.crosspost().queue()
 		
 		aChannel.handleMessageReceived(event)
 		
+	}
+	
+	fun handleSelectMenuInteraction(event: SelectMenuInteractionEvent) {
+		if (event.componentId == "tznotify") {
+			event.guild!!.modifyMemberRoles(event.member!!, event.selectedOptions.map { auriel.jda.getRoleById(it.value)!! }, emptyList()).queue()
+			event.reply_("You will now receive notifications for those Terror Zones.").queue()
+		}
 	}
 	
 	private fun muteSpammer(member: Member, message: Message, filterName: String) {
@@ -176,6 +209,11 @@ class AGuild {
 		val removed = data.wordFilters.removeIf { it.source == name }
 		if (removed) saveData()
 		return removed
+	}
+	
+	fun onTerrorZoneChange(tz: TerrorZone) {
+		auriel.jda.getChannelById(GuildMessageChannel::class.java, tzGuildData!!.channelId!!)!!
+			.message(tzGuildData!!.messageTemplate!!.replace("%ROLE%", tzGuildData!!.roleMentions!![tz]!!).replace("%ZONE%", tz.zoneName)).queue()
 	}
 	
 }

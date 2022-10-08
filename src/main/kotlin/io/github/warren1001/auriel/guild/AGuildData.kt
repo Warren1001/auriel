@@ -10,5 +10,6 @@ data class AGuildData(val _id: String) {
 	val spamFilters = mutableSetOf<Filter>()
 	var logChannelId: String? = null
 	var youtubeData: YoutubeData? = null
+	var crosspost = false
 	
 }
