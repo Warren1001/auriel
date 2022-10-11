@@ -10,7 +10,6 @@ import dev.minn.jda.ktx.interactions.components.replyModal
 import dev.minn.jda.ktx.messages.MessageCreate
 import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.Auriel
-import io.github.warren1001.auriel.d2.CloneHandler
 import io.github.warren1001.auriel.d2.TerrorZone
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Activity
@@ -214,9 +213,6 @@ class Commands(private val auriel: Auriel) {
 				}
 			}
 		}
-		registerCommand("clone", "Request help with Diablo Clone (PC Only).", true, permission = Permission.MESSAGE_SEND) {
-			CloneHandler(auriel.guilds.getGuild(it.guild!!.id)).openRequestHelpModal(it)
-		}
 		commandActions["tz"] = {
 			val msg = it.getOption("message")?.asString ?: "%ROLE% **%ZONE%** is/are Terrorized!"
 			val tzs = TerrorZone.values().toList()
@@ -280,6 +276,12 @@ class Commands(private val auriel: Auriel) {
 			option<String>("message", "The message to use for the button.", required = true)
 			option<String>("button", "The text on the button itself", required = true)
 		}.queue()
+		registerCommand("clonehelpmsg", "Sends the clone help message in this channel.", permission = Permission.BAN_MEMBERS) {
+			auriel.guilds.getGuild(it.guild!!.id).cloneHandler.sendRequestHelpMessage(it)
+		}
+		registerCommand("clonehelpermsg", "Sends the clone helper message in this channel.", permission = Permission.BAN_MEMBERS) {
+			auriel.guilds.getGuild(it.guild!!.id).cloneHandler.sendHelperMessage(it)
+		}
 	}
 	
 	fun registerCommand(name: String, description: String, guildOnly: Boolean = true, permission: Permission = Permission.MESSAGE_SEND, action: (SlashCommandInteractionEvent) -> Unit) {

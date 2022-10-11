@@ -1,0 +1,4 @@
+package io.github.warren1001.auriel.d2
+
+data class CloneInfo(val requesterId: String, val gameName: String, val password: String, val otherInfo: String) {
+}

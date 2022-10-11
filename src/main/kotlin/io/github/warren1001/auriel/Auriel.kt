@@ -10,12 +10,14 @@ import dev.minn.jda.ktx.jdabuilder.light
 import dev.minn.jda.ktx.messages.SendDefaults
 import io.github.warren1001.auriel.command.Commands
 import io.github.warren1001.auriel.eventhandler.ButtonInteractionHandler
+import io.github.warren1001.auriel.eventhandler.ModalInteractionHandler
 import io.github.warren1001.auriel.guild.Guilds
 import io.github.warren1001.auriel.util.SpecialMessageHandler
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.User
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
 import net.dv8tion.jda.api.events.ReadyEvent
+import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.SelectMenuInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
@@ -37,6 +39,7 @@ class Auriel(val jda: JDA, youtubeToken: String) {
 	
 	private val mongo = KMongo.createClient()
 	private val buttonInteractionHandler = ButtonInteractionHandler(this)
+	private val modalInteractionHandler = ModalInteractionHandler(this)
 	
 	val youtube: YouTube = YouTube.Builder(GoogleNetHttpTransport.newTrustedTransport(), GsonFactory.getDefaultInstance()) {}.setApplicationName("new-video-checker")
 		.setYouTubeRequestInitializer(YouTubeRequestInitializer(youtubeToken)).build()
@@ -51,6 +54,7 @@ class Auriel(val jda: JDA, youtubeToken: String) {
 		jda.listener<MessageReceivedEvent> { specialMessageHandler.handleMessageReceived(it) }
 		jda.listener<ButtonInteractionEvent> { buttonInteractionHandler.handle(it) }
 		jda.listener<SelectMenuInteractionEvent> { specialMessageHandler.handleSelectMenu(it) }
+		jda.listener<ModalInteractionEvent> { modalInteractionHandler.onModalInteraction(it) }
 	}
 	
 	fun shutdown() {

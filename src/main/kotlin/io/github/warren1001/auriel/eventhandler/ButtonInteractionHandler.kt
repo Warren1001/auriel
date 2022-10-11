@@ -31,6 +31,19 @@ class ButtonInteractionHandler(private val auriel: Auriel) {
 						event.reply_("You do not have the role.", ephemeral = true).queue()
 					}
 				}
+			} else if (args[0] == "clone") {
+				val aGuild = auriel.guilds.getGuild(guild.id)
+				if (args[2] == "next") {
+					aGuild.cloneHandler.nextHelp(event)
+				} else if (args[2] == "finished") {
+					aGuild.cloneHandler.finishHelping(event)
+				} else if (args[2] == "help") {
+					aGuild.cloneHandler.openRequestHelpModal(event)
+				} else if (args[2] == "cancel") {
+					aGuild.cloneHandler.cancelHelp(event)
+				} else if (args[2] == "start") {
+					aGuild.cloneHandler.beginHelping(event)
+				}
 			}
 		}
 		else if (event.componentId == "tzrolebutton") {

@@ -8,6 +8,7 @@ import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.*
 import io.github.warren1001.auriel.channel.text.AGuildMessageChannel
 import io.github.warren1001.auriel.channel.text.AGuildMessageData
+import io.github.warren1001.auriel.d2.CloneHandler
 import io.github.warren1001.auriel.d2.TerrorZone
 import io.github.warren1001.auriel.d2.TerrorZoneTrackerGuildData
 import io.github.warren1001.auriel.util.filter.RepeatedSpamFilter
@@ -39,6 +40,7 @@ class AGuild {
 	val data: AGuildData
 	val textChannelDataCollection: MongoCollection<AGuildMessageData>
 	var tzGuildData: TerrorZoneTrackerGuildData? = null
+	val cloneHandler = CloneHandler(this)
 	
 	private var youtubeAnnouncer: YoutubeAnnouncer? = null
 	private val guildMessageChannels = mutableMapOf<String, AGuildMessageChannel>()
