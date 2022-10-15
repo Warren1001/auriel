@@ -9,7 +9,8 @@ data class AGuildData(val _id: String) {
 	val wordFilters = mutableSetOf<WordFilter>()
 	val spamFilters = mutableSetOf<Filter>()
 	var logChannelId: String? = null
-	var youtubeData: YoutubeData? = null
+	var youtubeData: YoutubeData = YoutubeData()
 	var crosspost = false
+	var fallbackChannelId: String? = null
 	
 }

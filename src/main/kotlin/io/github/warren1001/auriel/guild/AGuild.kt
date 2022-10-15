@@ -8,14 +8,13 @@ import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.*
 import io.github.warren1001.auriel.channel.text.AGuildMessageChannel
 import io.github.warren1001.auriel.channel.text.AGuildMessageData
-import io.github.warren1001.auriel.d2.CloneHandler
-import io.github.warren1001.auriel.d2.TerrorZone
-import io.github.warren1001.auriel.d2.TerrorZoneTrackerGuildData
+import io.github.warren1001.auriel.d2.clone.CloneHandler
+import io.github.warren1001.auriel.d2.tz.TerrorZone
+import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerGuildData
 import io.github.warren1001.auriel.util.filter.RepeatedSpamFilter
 import io.github.warren1001.auriel.util.filter.SpamFilter
 import io.github.warren1001.auriel.util.filter.WordFilter
 import io.github.warren1001.auriel.util.youtube.YoutubeAnnouncer
-import io.github.warren1001.auriel.util.youtube.YoutubeData
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Member
 import net.dv8tion.jda.api.entities.Message
@@ -39,10 +38,10 @@ class AGuild {
 	
 	val data: AGuildData
 	val textChannelDataCollection: MongoCollection<AGuildMessageData>
-	var tzGuildData: TerrorZoneTrackerGuildData? = null
+	val tzGuildData: TerrorZoneTrackerGuildData
 	val cloneHandler = CloneHandler(this)
+	val youtubeAnnouncer: YoutubeAnnouncer
 	
-	private var youtubeAnnouncer: YoutubeAnnouncer? = null
 	private val guildMessageChannels = mutableMapOf<String, AGuildMessageChannel>()
 	
 	constructor(auriel: Auriel, id: String, guilds: Guilds) {
@@ -50,7 +49,8 @@ class AGuild {
 		this.id = id
 		data = guilds.guildDataCollection.findOneById(id) ?: AGuildData(id)
 		textChannelDataCollection = auriel.database.getCollection("$id-textChannels", AGuildMessageData::class.java)
-		tzGuildData = guilds.tzTrackerRoleCollection.findOneById(id)
+		tzGuildData = guilds.tzTrackerRoleCollection.findOneById(id) ?: TerrorZoneTrackerGuildData(id)
+		youtubeAnnouncer = YoutubeAnnouncer(auriel, this, data.youtubeData, auriel.youtube)
 		setup()
 	}
 	
@@ -59,38 +59,32 @@ class AGuild {
 		this.id = id
 		this.data = data
 		textChannelDataCollection = auriel.database.getCollection("$id-textChannels", AGuildMessageData::class.java)
-		tzGuildData = guilds.tzTrackerRoleCollection.findOneById(id)
+		tzGuildData = guilds.tzTrackerRoleCollection.findOneById(id) ?: TerrorZoneTrackerGuildData(id)
+		youtubeAnnouncer = YoutubeAnnouncer(auriel, this, data.youtubeData, auriel.youtube)
 		setup()
 	}
 	
 	private fun setup() {
 		textChannelDataCollection.find().forEach { guildMessageChannels[it._id] = AGuildMessageChannel(auriel, this, it._id, it) }
-		startYoutubeAnnouncer()
+		youtubeAnnouncer.start()
 	}
 	
 	fun getGuildMessageChannel(channel: GuildMessageChannel): AGuildMessageChannel = guildMessageChannels.computeIfAbsent(channel.id) { AGuildMessageChannel(auriel, this, it) }
 	
-	fun getGuildMessageChannelById(id: String): AGuildMessageChannel = guildMessageChannels.computeIfAbsent(id) { AGuildMessageChannel(auriel, this, it) }
+	private fun saveTZGuildData() = auriel.guilds.tzTrackerRoleCollection.updateOne(tzGuildData, UpdateOptions().upsert(true))
 	
-	private fun startYoutubeAnnouncer() {
-		if (data.youtubeData != null) youtubeAnnouncer = YoutubeAnnouncer(auriel, this, auriel.youtube)
-	}
-	
-	fun startYoutubeAnnouncer(playlistId: String, message: String, channel: GuildMessageChannel) {
-		if (youtubeAnnouncer != null) youtubeAnnouncer!!.stop()
-		data.youtubeData = YoutubeData(playlistId, channel.id, message)
-		youtubeAnnouncer = YoutubeAnnouncer(auriel, this, auriel.youtube)
-		saveData()
-	}
-	
-	private fun saveTZGuildData() {
-		if (tzGuildData != null) auriel.guilds.tzTrackerRoleCollection.updateOne(tzGuildData!!, UpdateOptions().upsert(true))
-	}
+	fun getTZRoleIds() = tzGuildData.roleIds
 	
 	fun saveData() = auriel.guilds.guildDataCollection.updateOne(data, options = UpdateOptions().upsert(true))
 	
 	fun setLoggingChannel(channel: GuildMessageChannel) {
 		data.logChannelId = channel.id
+		if (data.fallbackChannelId == null) data.fallbackChannelId = channel.id
+		saveData()
+	}
+	
+	fun setFallbackChannel(channel: GuildMessageChannel) {
+		data.fallbackChannelId = channel.id
 		saveData()
 	}
 	
@@ -100,11 +94,10 @@ class AGuild {
 	}
 	
 	fun setupTZ(channelId: String, format: String, roles: Map<TerrorZone, Role?>) {
-		if (tzGuildData == null) tzGuildData = TerrorZoneTrackerGuildData(id)
-		tzGuildData!!.channelId = channelId
-		tzGuildData!!.messageTemplate = format
-		tzGuildData!!.roleIds = roles.filterValues { it != null }.mapValues { it.value!!.id }
-		tzGuildData!!.roleMentions = roles.mapValues { it.value?.asMention ?: "?" }
+		tzGuildData.channelId = channelId
+		tzGuildData.messageTemplate = format
+		tzGuildData.roleIds = roles.filterValues { it != null }.mapValues { it.value!!.id }
+		tzGuildData.roleMentions = roles.mapValues { it.value?.asMention ?: "?" }
 		auriel.guilds.tzTracker.addGuild(id)
 		saveTZGuildData()
 	}
@@ -124,15 +117,15 @@ class AGuild {
 			val swearFilters = data.wordFilters.filter { it.containsMatchIn(message) }
 			if (swearFilters.isNotEmpty()) {
 				val swearWords = swearFilters.joinToString(", ") { it.source }
-				event.message.delete().queue()
+				event.message.delete().queue_()
 				var repostId: Long? = null
 				if (swearFilters.all { it.shouldReplace() } && aChannel.allowsReposting()) {
 					swearFilters.forEach { message = it.replace(message) }
 					repostId = event.channel.message("${event.author.asMention} said (censored): $message").complete().idLong
 				} else {
 					event.author.dm("Your message was deleted from ${event.channel.asMention} in **${event.guild.name}** because it contained the following blocked phrase(s): **$swearWords**\n" +
-							"Here's your message incase you didn't save it:").queue()
-					event.author.dm(message.quote()).queue()
+							"Here's your message incase you didn't save it:")
+					event.author.dm(message.quote())
 				}
 				logMessageDelete(author, event.channel.asGuildMessageChannel(), "Swearing: $swearWords", event.message.contentRaw, repostId)
 				return
@@ -156,7 +149,7 @@ class AGuild {
 			
 		}
 		
-		if (event.channelType == ChannelType.NEWS && data.crosspost) event.message.crosspost().queue()
+		if (event.channelType == ChannelType.NEWS && data.crosspost) event.message.crosspost().queue_()
 		
 		aChannel.handleMessageReceived(event)
 		
@@ -164,14 +157,14 @@ class AGuild {
 	
 	fun handleSelectMenuInteraction(event: SelectMenuInteractionEvent) {
 		if (event.componentId == "tznotify") {
-			event.guild!!.modifyMemberRoles(event.member!!, event.selectedOptions.map { auriel.jda.getRoleById(it.value)!! }, emptyList()).queue()
-			event.reply_("You will now receive notifications for those Terror Zones.").queue()
+			event.guild!!.modifyMemberRoles(event.member!!, event.selectedOptions.map { auriel.jda.getRoleById(it.value)!! }, emptyList()).queue_()
+			event.reply_("You will now receive notifications for those Terror Zones.").queue_()
 		}
 	}
 	
 	private fun muteSpammer(member: Member, message: Message, filterName: String) {
-		message.delete().queue()
-		member.mute(true).queue()
+		message.delete().queue_()
+		member.mute(true).queue_()
 		logMessageDelete(member, message.channel.asGuildMessageChannel(), "Suspected bot ($filterName), muted", message.contentRaw)
 		data.spamFilters.filterIsInstance<RepeatedSpamFilter>().forEach { it.clearMember(member) }
 	}
@@ -186,7 +179,15 @@ class AGuild {
 		})
 	}
 	
-	private fun log(embed: MessageEmbed) = data.logChannelId?.let { auriel.jda.getTextChannelById(it)?.sendMessageEmbeds(embed)?.queue() }
+	private fun log(embed: MessageEmbed) = data.logChannelId?.let { auriel.jda.getTextChannelById(it)?.sendMessageEmbeds(embed)?.queue_() }
+	
+	fun logDMFailure(member: Member, message: String) {
+		log(Embed(title = "DM Failure", color = Color.BLACK.rgb, timestamp = Instant.now()) {
+			field { name = "User"; value = "${member.asMention} (${member.effectiveName}#${member.user.discriminator})"; inline = true }
+			field { name = "Message"; value = message.quote(1024); inline = false }
+			description = "Please setup a fallback channel using `/setfallbackchannel`."
+		})
+	}
 	
 	fun sendRoleGiveMsg(channel: GuildMessageChannel, role: Role, message: String, given: String, removed: String) {
 		channel.sendMessage(MessageCreateBuilder {
@@ -195,7 +196,7 @@ class AGuild {
 				Button.primary("r-${role.id}-g", given.truncate(80)),
 				Button.danger("r-${role.id}-r", removed.truncate(80))
 			)
-		}.build()).queue()
+		}.build()).queue_()
 	}
 	
 	fun addWordFilter(name: String, pattern: String, replace: String? = null, literal: Boolean = false, caseSensitive: Boolean = false) {
@@ -215,7 +216,7 @@ class AGuild {
 	
 	fun onTerrorZoneChange(tz: TerrorZone) {
 		auriel.jda.getChannelById(GuildMessageChannel::class.java, tzGuildData!!.channelId!!)!!
-			.message(tzGuildData!!.messageTemplate!!.replace("%ROLE%", tzGuildData!!.roleMentions!![tz]!!).replace("%ZONE%", tz.zoneName)).queue()
+			.message(tzGuildData!!.messageTemplate!!.replace("%ROLE%", tzGuildData!!.roleMentions!![tz]!!).replace("%ZONE%", tz.zoneName)).queue_()
 	}
 	
 }

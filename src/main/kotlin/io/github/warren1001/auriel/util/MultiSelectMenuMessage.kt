@@ -4,6 +4,7 @@ import dev.minn.jda.ktx.interactions.components.SelectMenu
 import dev.minn.jda.ktx.interactions.components.SelectOption
 import dev.minn.jda.ktx.messages.MessageCreate
 import dev.minn.jda.ktx.messages.editMessage_
+import io.github.warren1001.auriel.queue_
 import net.dv8tion.jda.api.events.interaction.component.SelectMenuInteractionEvent
 import net.dv8tion.jda.api.interactions.components.ActionRow
 import net.dv8tion.jda.api.interactions.components.selections.SelectOption
@@ -28,10 +29,10 @@ class MultiSelectMenuMessage<T>(private val id: String, private val data: Mutabl
 					setRequiredRange(1, if (onlyOne) 1 else options.size)
 					addOptions(options)
 				}
-			))).queue()
+			))).queue_()
 			return false
 		} else {
-			event.editMessage_(finishMsg, components = emptyList()).queue()
+			event.editMessage_(finishMsg, components = emptyList()).queue_()
 			finished.invoke(data)
 			return true
 		}

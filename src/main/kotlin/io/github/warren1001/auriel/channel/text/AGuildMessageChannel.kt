@@ -20,7 +20,7 @@ class AGuildMessageChannel {
 	private val guild: AGuild
 	private val id: String
 	
-	private val data: AGuildMessageData
+	val data: AGuildMessageData
 	
 	private val lastMemberMessage = mutableMapOf<User, Message>()
 	private var messageAgeTimer: Timer? = null
@@ -62,25 +62,25 @@ class AGuildMessageChannel {
 			val filters = data.wordFilters.filter { it.containsMatchIn(message) }
 			if (filters.isNotEmpty()) {
 				val blockedPhrases = filters.joinToString(" ") { it.source }
-				event.message.delete().queue()
+				event.message.delete().queue_()
 				var repostId: Long? = null
 				if (filters.all { it.shouldReplace() } && allowsReposting()) {
 					filters.forEach { message = it.replace(message) }
 					repostId = event.channel.message("${event.author.asMention} said (filtered): $message}").complete().idLong
 				} else {
 					event.author.dm("Your message was deleted from ${channel.asMention} in **${event.guild.name}** because it contained the following blocked phrase(s): **$blockedPhrases**\n" +
-							"Here's your message incase you didn't save it:").queue()
-					event.author.dm(message.quote()).queue()
+							"Here's your message incase you didn't save it:")
+					event.author.dm(message.quote())
 				}
 				guild.logMessageDelete(author, event.channel.asGuildMessageChannel(), "Blocked phrase(s): $blockedPhrases", event.message.contentRaw, repostId)
 				return
 			}
 			
 			if (message.split('\n').size > data.lineLimit) {
-				event.message.delete().queue()
+				event.message.delete().queue_()
 				event.author.dm("Your message was deleted from ${channel.asMention} in **${event.guild.name}** because it contained too many lines (limit of **${data.lineLimit}**).\n" +
-						"Here's your message incase you didn't save it:").queue()
-				event.author.dm(message.quote()).queue()
+						"Here's your message incase you didn't save it:")
+				event.author.dm(message.quote())
 				guild.logMessageDelete(author, event.channel.asGuildMessageChannel(), "Exceeded line limit of ${data.lineLimit}", message)
 				return
 			}
@@ -96,19 +96,30 @@ class AGuildMessageChannel {
 		
 	}
 	
-	private fun startMessageAgeTimer() {
-		if (messageAgeTimer != null) return
+	fun startMessageAgeTimer(): Boolean {
+		messageAgeTimer?.cancel()
 		if (data.maxMessageAge > 0L && data.messageAgeInterval > 0L) {
 			messageAgeTimer = timer("$id-messageAge", true, 60 * 1000, data.messageAgeInterval) {
-				MessageHistory.getHistoryBefore(auriel.jda.getTextChannelById(id)!!, TimeUtil.getDiscordTimestamp(System.currentTimeMillis() - data.maxMessageAge).toString())
-						.queue { it.channel.asGuildMessageChannel().purgeMessages(it.retrievedHistory.filter { it.member != null && !it.member!!.hasPermission(Permission.BAN_MEMBERS) }) }
+				try {
+					MessageHistory.getHistoryBefore(auriel.jda.getTextChannelById(id)!!, TimeUtil.getDiscordTimestamp(System.currentTimeMillis() - data.maxMessageAge).toString())
+						.queue_ { it.channel.asGuildMessageChannel().purgeMessages(it.retrievedHistory.filter { it.member != null && !it.member!!.hasPermission(Permission.BAN_MEMBERS) }) }
+				} catch (e: Exception) {
+					auriel.warren("${e.message}\n${e.stackTraceToString()}")
+				}
 			}
+			return true
 		}
+		return false
+	}
+	
+	fun stopMessageAgeTimer() {
+		messageAgeTimer?.cancel()
+		messageAgeTimer = null
 	}
 	
 	private fun deleteAllButOneMessage() {
 		if (data.onlyOneMessage) {
-			MessageHistory.getHistoryFromBeginning(auriel.jda.getTextChannelById(id)!!).queue { history ->
+			MessageHistory.getHistoryFromBeginning(auriel.jda.getTextChannelById(id)!!).queue_ { history ->
 				history.channel.asTextChannel().purgeMessages(history.retrievedHistory.filter {
 					if (it.author.isBot || (it.member != null && it.member!!.hasPermission(Permission.BAN_MEMBERS))) {
 						false
@@ -123,12 +134,13 @@ class AGuildMessageChannel {
 		}
 	}
 	
-	fun setMaxMessageAge(maxMessageAge: Long, messageAgeInterval: Long) {
+	fun setMaxMessageAge(maxMessageAge: Long) {
 		data.maxMessageAge = maxMessageAge
+		saveData()
+	}
+	
+	fun setMessageAgeInterval(messageAgeInterval: Long) {
 		data.messageAgeInterval = messageAgeInterval
-		messageAgeTimer?.cancel()
-		messageAgeTimer = null
-		startMessageAgeTimer()
 		saveData()
 	}
 	
@@ -154,7 +166,7 @@ class AGuildMessageChannel {
 		return removed
 	}
 	
-	fun setOnlyOneMessage(value: Boolean){
+	fun setOnlyOneMessage(value: Boolean) {
 		data.onlyOneMessage = value
 		deleteAllButOneMessage()
 		saveData()

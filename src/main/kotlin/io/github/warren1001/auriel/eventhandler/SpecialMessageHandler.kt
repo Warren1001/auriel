@@ -1,6 +1,10 @@
-package io.github.warren1001.auriel.util
+package io.github.warren1001.auriel.eventhandler
 
 import io.github.warren1001.auriel.Auriel
+import io.github.warren1001.auriel.util.ChainMessage
+import io.github.warren1001.auriel.util.ChainMessageBuilder
+import io.github.warren1001.auriel.util.MultiSelectMenuMessage
+import io.github.warren1001.auriel.util.MultiSelectMenuMessageBuilder
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.User
 import net.dv8tion.jda.api.events.interaction.component.SelectMenuInteractionEvent
@@ -11,8 +15,8 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateData
 
 class SpecialMessageHandler(private val auriel: Auriel) {
 	
-	private val multiSelectMessages: MutableMap<String, MultiSelectMenuMessage<*>> = mutableMapOf()
-	private val chainMessages: MutableMap<String, ChainMessage<*,*>> = mutableMapOf()
+	val multiSelectMessages: MutableMap<String, MultiSelectMenuMessage<*>> = mutableMapOf()
+	val chainMessages: MutableMap<String, ChainMessage<*, *>> = mutableMapOf()
 
 	fun handleSelectMenu(event: SelectMenuInteractionEvent) {
 		if (!event.isFromGuild) return
@@ -45,11 +49,25 @@ class SpecialMessageHandler(private val auriel: Auriel) {
 		return message.createInitialReply()
 	}
 	
+	fun <T> replyMultiSelectMenuMessage(builder: MultiSelectMenuMessageBuilder<T>.() -> Unit): MessageCreateData {
+		val build = MultiSelectMenuMessageBuilder<T>().apply(builder)
+		val message = build.build()
+		multiSelectMessages[build.userId] = message
+		return message.createInitialReply()
+	}
+	
 	fun <T, U> replyChainMessageCallback(user: User, values: List<T>, format: String, finishMsg: String, parse: (T, Message) -> U, display: (T) -> String,
 			                             createMessage: (MessageCreateData, (InteractionHook) -> Unit) -> Unit, finished: (MutableMap<T, U>) -> Unit) {
 		val message = ChainMessage(mutableMapOf(), values, format, finishMsg, parse, display, finished)
 		chainMessages[user.id] = message
 		message.createInitialReplyCallback(createMessage)
+	}
+	
+	fun <T, U> replyChainMessageCallback(builder: ChainMessageBuilder<T, U>.() -> Unit) {
+		val build = ChainMessageBuilder<T, U>().apply(builder)
+		val message = build.build()
+		chainMessages[build.userId!!] = message
+		message.createInitialReplyCallback(build.createMessage!!)
 	}
 
 }

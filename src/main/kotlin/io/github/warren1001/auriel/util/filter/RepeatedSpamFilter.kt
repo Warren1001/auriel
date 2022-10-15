@@ -1,5 +1,6 @@
 package io.github.warren1001.auriel.util.filter
 
+import io.github.warren1001.auriel.queue_
 import net.dv8tion.jda.api.entities.Member
 import net.dv8tion.jda.api.entities.Message
 
@@ -41,7 +42,7 @@ data class RepeatedSpamFilter(val name: String, val regexes: MutableSet<Regex>, 
 		}
 		
 		fun purge() {
-			matchedMessages.forEach { it.delete().queue() }
+			matchedMessages.forEach { it.delete().queue_() }
 			matchedMessages.clear()
 		}
 		

@@ -12,24 +12,29 @@ import io.github.warren1001.auriel.command.Commands
 import io.github.warren1001.auriel.eventhandler.ButtonInteractionHandler
 import io.github.warren1001.auriel.eventhandler.ModalInteractionHandler
 import io.github.warren1001.auriel.guild.Guilds
-import io.github.warren1001.auriel.util.SpecialMessageHandler
+import io.github.warren1001.auriel.eventhandler.SpecialMessageHandler
 import net.dv8tion.jda.api.JDA
+import net.dv8tion.jda.api.entities.Guild
+import net.dv8tion.jda.api.entities.Member
 import net.dv8tion.jda.api.entities.User
+import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
-import net.dv8tion.jda.api.events.ReadyEvent
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.SelectMenuInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
+import net.dv8tion.jda.api.events.session.ReadyEvent
 import net.dv8tion.jda.api.exceptions.ErrorHandler
 import net.dv8tion.jda.api.requests.ErrorResponse
 import net.dv8tion.jda.api.requests.GatewayIntent
+import net.dv8tion.jda.api.requests.RestAction
 import net.dv8tion.jda.api.requests.restaction.AuditableRestAction
 import net.dv8tion.jda.api.utils.ChunkingFilter
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import net.dv8tion.jda.api.utils.cache.CacheFlag
 import org.litote.kmongo.KMongo
 import org.litote.kmongo.util.UpdateConfiguration
+import kotlin.system.exitProcess
 
 class Auriel(val jda: JDA, youtubeToken: String) {
 	
@@ -51,10 +56,34 @@ class Auriel(val jda: JDA, youtubeToken: String) {
 	init {
 		SendDefaults.ephemeral = true
 		UpdateConfiguration.updateOnlyNotNullProperties = true
-		jda.listener<MessageReceivedEvent> { specialMessageHandler.handleMessageReceived(it) }
-		jda.listener<ButtonInteractionEvent> { buttonInteractionHandler.handle(it) }
-		jda.listener<SelectMenuInteractionEvent> { specialMessageHandler.handleSelectMenu(it) }
-		jda.listener<ModalInteractionEvent> { modalInteractionHandler.onModalInteraction(it) }
+		jda.listener<MessageReceivedEvent> {
+			try {
+				specialMessageHandler.handleMessageReceived(it)
+			} catch (e: Exception) {
+				warren("${e.message}\n${e.stackTraceToString()}")
+			}
+		}
+		jda.listener<ButtonInteractionEvent> {
+			try {
+				buttonInteractionHandler.handle(it)
+			} catch (e: Exception) {
+				warren("${e.message}\n${e.stackTraceToString()}")
+			}
+		}
+		jda.listener<SelectMenuInteractionEvent> {
+			try {
+				specialMessageHandler.handleSelectMenu(it)
+			} catch (e: Exception) {
+				warren("${e.message}\n${e.stackTraceToString()}")
+			}
+		}
+		jda.listener<ModalInteractionEvent> {
+			try {
+				modalInteractionHandler.onModalInteraction(it)
+			} catch(e: Exception) {
+				warren("${e.message}\n${e.stackTraceToString()}")
+			}
+		}
 	}
 	
 	fun shutdown() {
@@ -62,9 +91,13 @@ class Auriel(val jda: JDA, youtubeToken: String) {
 		mongo.close()
 	}
 	
-	fun warren(): User = jda.retrieveUserById("164118147073310721").complete()
+	fun warren(action: (User) -> Unit) = jda.retrieveUserById("164118147073310721").queue(action)
+	
+	fun warren(msg: String) = warren { it.dm(msg) }
 	
 }
+
+private lateinit var auriel: Auriel
 
 fun main(args: Array<String>) {
 	val discordToken = args[0]
@@ -76,18 +109,44 @@ fun main(args: Array<String>) {
 		setMemberCachePolicy(MemberCachePolicy.ALL)
 	}
 	jda.listener<ReadyEvent> {
-		Auriel(jda, youtubeToken)
-		println("Ready!")
+		try {
+			auriel = Auriel(jda, youtubeToken)
+			println("Ready!")
+		} catch (e: Exception) {
+			e.printStackTrace()
+			exitProcess(1)
+		}
 	}
 }
 
-fun User.dm(message: String) = openPrivateChannel().complete().sendMessage(message.truncate(2000))
+fun User.dm(message: String) = openPrivateChannel().queue_ { it.message(message).queue_() }
+
+fun Member.dmWithFallback(message: String) = user.openPrivateChannel().queue { it.message(message).queue_(failure = ErrorHandler().handle(ErrorResponse.CANNOT_SEND_TO_USER) {
+	val aGuild = auriel.guilds.getGuild(guild.id)
+	val fallbackChannelId = aGuild.data.fallbackChannelId
+	if (fallbackChannelId != null) {
+		guild.getTextChannelById(fallbackChannelId)!!.message("*${user.asMention} I could not DM you, so I'm forced to message you here:*\n$message").queue_()
+	} else {
+		aGuild.logDMFailure(this, message)
+	}
+}) }
+
+fun Guild.a() = auriel.guilds.getGuild(id)
+
+fun GuildMessageChannel.a() = guild.a().getGuildMessageChannel(this)
+
+fun Member.fullMention() = "$asMention (${user.name}#${user.discriminator})"
+
+fun User.fullMention() = "$asMention ($name#$discriminator)"
 
 fun String.truncate(length: Int): String = substring(0, this.length.coerceAtMost(length))
 
 fun MessageChannel.message(message: String) = sendMessage(message.truncate(2000))
 
-fun AuditableRestAction<Void>.queueDelete() = queue(null, ErrorHandler().ignore(ErrorResponse.UNKNOWN_MESSAGE))
+fun AuditableRestAction<Void>.queueDelete() = queue_(failure = ErrorHandler().ignore(ErrorResponse.UNKNOWN_MESSAGE))
+
+fun <T> RestAction<T>.queue_(failure: ErrorHandler = ErrorHandler(), success: ((T) -> Unit)? = null): Unit = queue(success,
+	failure.handle({ true }) { auriel.warren("${it.message}\n${it.stackTraceToString()}") })
 
 fun String.quote(truncateLength: Int = 2000): String {
 	return if (length > truncateLength - 10) "```\n${replace("```", "`\\``").truncate(truncateLength - 10 - countMatches("```"))}...```" else "```\n$this```"

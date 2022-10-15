@@ -2,9 +2,10 @@ package io.github.warren1001.auriel.guild
 
 import com.mongodb.client.MongoCollection
 import io.github.warren1001.auriel.Auriel
-import io.github.warren1001.auriel.d2.TerrorZoneTracker
-import io.github.warren1001.auriel.d2.TerrorZoneTrackerData
-import io.github.warren1001.auriel.d2.TerrorZoneTrackerGuildData
+import io.github.warren1001.auriel.d2.tz.TerrorZoneTracker
+import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerData
+import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerGuildData
+import io.github.warren1001.auriel.queue_
 import net.dv8tion.jda.api.entities.channel.ChannelType
 import net.dv8tion.jda.api.events.interaction.component.SelectMenuInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
@@ -36,7 +37,7 @@ class Guilds(private val auriel: Auriel) {
 		if (tzTracker.handle(event)) return
 		if (event.author.isBot) {
 			if (event.author.id == auriel.jda.selfUser.id && event.channelType == ChannelType.NEWS) {
-				event.message.crosspost().queue()
+				event.message.crosspost().queue_()
 			}
 			return
 		}

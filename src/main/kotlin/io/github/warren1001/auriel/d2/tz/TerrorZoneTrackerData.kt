@@ -1,4 +1,4 @@
-package io.github.warren1001.auriel.d2
+package io.github.warren1001.auriel.d2.tz
 
 import java.time.Instant
 
