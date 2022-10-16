@@ -39,7 +39,7 @@ class AGuild {
 	val data: AGuildData
 	val textChannelDataCollection: MongoCollection<AGuildMessageData>
 	val tzGuildData: TerrorZoneTrackerGuildData
-	val cloneHandler = CloneHandler(this)
+	val cloneHandler: CloneHandler
 	val youtubeAnnouncer: YoutubeAnnouncer
 	
 	private val guildMessageChannels = mutableMapOf<String, AGuildMessageChannel>()
@@ -50,6 +50,7 @@ class AGuild {
 		data = guilds.guildDataCollection.findOneById(id) ?: AGuildData(id)
 		textChannelDataCollection = auriel.database.getCollection("$id-textChannels", AGuildMessageData::class.java)
 		tzGuildData = guilds.tzTrackerRoleCollection.findOneById(id) ?: TerrorZoneTrackerGuildData(id)
+		cloneHandler = CloneHandler(auriel, this)
 		youtubeAnnouncer = YoutubeAnnouncer(auriel, this, data.youtubeData, auriel.youtube)
 		setup()
 	}
@@ -60,6 +61,7 @@ class AGuild {
 		this.data = data
 		textChannelDataCollection = auriel.database.getCollection("$id-textChannels", AGuildMessageData::class.java)
 		tzGuildData = guilds.tzTrackerRoleCollection.findOneById(id) ?: TerrorZoneTrackerGuildData(id)
+		cloneHandler = CloneHandler(auriel, this)
 		youtubeAnnouncer = YoutubeAnnouncer(auriel, this, data.youtubeData, auriel.youtube)
 		setup()
 	}
@@ -72,8 +74,6 @@ class AGuild {
 	fun getGuildMessageChannel(channel: GuildMessageChannel): AGuildMessageChannel = guildMessageChannels.computeIfAbsent(channel.id) { AGuildMessageChannel(auriel, this, it) }
 	
 	private fun saveTZGuildData() = auriel.guilds.tzTrackerRoleCollection.updateOne(tzGuildData, UpdateOptions().upsert(true))
-	
-	fun getTZRoleIds() = tzGuildData.roleIds
 	
 	fun saveData() = auriel.guilds.guildDataCollection.updateOne(data, options = UpdateOptions().upsert(true))
 	
@@ -102,7 +102,7 @@ class AGuild {
 		saveTZGuildData()
 	}
 	
-	fun handleMessageReceived(event: MessageReceivedEvent) {
+	fun handleMessageReceived(event: MessageReceivedEvent): Boolean {
 		// cant be a bot and will always be a guild channel
 		
 		val author = event.member!!
@@ -128,7 +128,7 @@ class AGuild {
 					event.author.dm(message.quote())
 				}
 				logMessageDelete(author, event.channel.asGuildMessageChannel(), "Swearing: $swearWords", event.message.contentRaw, repostId)
-				return
+				return true
 			}
 			
 			// spam filters
@@ -136,13 +136,13 @@ class AGuild {
 			val repeatedSpamFilters = data.spamFilters.filterIsInstance<RepeatedSpamFilter>().filter { it.containsMatchIn(message) }
 			if (spamFilters.isNotEmpty()) {
 				muteSpammer(author, event.message, spamFilters.first().name)
-				return
+				return true
 			}
 			if (repeatedSpamFilters.isNotEmpty()) {
 				val filter = repeatedSpamFilters.firstOrNull { it.logSpam(author, event.message) }
 				if (filter != null) {
 					muteSpammer(author, event.message, filter.name)
-					return
+					return true
 				}
 			}
 			data.spamFilters.filterIsInstance<RepeatedSpamFilter>().forEach { it.checkDecrease(author) }
@@ -151,7 +151,7 @@ class AGuild {
 		
 		if (event.channelType == ChannelType.NEWS && data.crosspost) event.message.crosspost().queue_()
 		
-		aChannel.handleMessageReceived(event)
+		return aChannel.handleMessageReceived(event)
 		
 	}
 	
@@ -215,8 +215,8 @@ class AGuild {
 	}
 	
 	fun onTerrorZoneChange(tz: TerrorZone) {
-		auriel.jda.getChannelById(GuildMessageChannel::class.java, tzGuildData!!.channelId!!)!!
-			.message(tzGuildData!!.messageTemplate!!.replace("%ROLE%", tzGuildData!!.roleMentions!![tz]!!).replace("%ZONE%", tz.zoneName)).queue_()
+		auriel.jda.getChannelById(GuildMessageChannel::class.java, tzGuildData.channelId!!)!!
+			.message(tzGuildData.messageTemplate!!.replace("%ROLE%", tzGuildData.roleMentions!![tz]!!).replace("%ZONE%", tz.zoneName)).queue_()
 	}
 	
 }

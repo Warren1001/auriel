@@ -48,7 +48,7 @@ class AGuildMessageChannel {
 	
 	fun saveData() = guild.textChannelDataCollection.updateOne(data, options = UpdateOptions().upsert(true))
 	
-	fun handleMessageReceived(event: MessageReceivedEvent) {
+	fun handleMessageReceived(event: MessageReceivedEvent): Boolean {
 		// cant be a bot and will always be a guild channel
 		
 		val author = event.member!!
@@ -73,7 +73,7 @@ class AGuildMessageChannel {
 					event.author.dm(message.quote())
 				}
 				guild.logMessageDelete(author, event.channel.asGuildMessageChannel(), "Blocked phrase(s): $blockedPhrases", event.message.contentRaw, repostId)
-				return
+				return true
 			}
 			
 			if (message.split('\n').size > data.lineLimit) {
@@ -82,7 +82,7 @@ class AGuildMessageChannel {
 						"Here's your message incase you didn't save it:")
 				event.author.dm(message.quote())
 				guild.logMessageDelete(author, event.channel.asGuildMessageChannel(), "Exceeded line limit of ${data.lineLimit}", message)
-				return
+				return true
 			}
 			
 			// only one message
@@ -93,7 +93,7 @@ class AGuildMessageChannel {
 			}
 			
 		}
-		
+		return false
 	}
 	
 	fun startMessageAgeTimer(): Boolean {

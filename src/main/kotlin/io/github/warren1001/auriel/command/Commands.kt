@@ -12,6 +12,7 @@ import io.github.warren1001.auriel.queue_
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Activity
 import net.dv8tion.jda.api.entities.Role
+import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions
 import net.dv8tion.jda.api.interactions.commands.build.Commands
@@ -113,6 +114,7 @@ class Commands(private val auriel: Auriel) {
 				}
 			}
 		}
+		auriel.autoCompletionHandler.addAutocompleteStrings("activity", option = "type", "playing", "competing", "listening", "watching", "streaming", "clear")
 		commandActions["tz"] = {
 			val msg = it.getOption("message", "%ROLE% **%ZONE%** is/are Terrorized!") { it.asString }
 			// intellij will tell you its okay to remove the type arguments, its not okay!! program wont compile if its missing (module error)
@@ -208,6 +210,24 @@ class Commands(private val auriel: Auriel) {
 				it.reply_("Invalid timer name.").queue_()
 			}
 		}
+		auriel.autoCompletionHandler.addAutocompleteStrings("timer", "start", option = "name", "message-age", "youtube")
+		auriel.autoCompletionHandler.addAutocompleteStrings("timer", "stop", option = "name", "message-age", "youtube")
+		commandActions["clone"] = {
+			val guild = it.guild!!.a()
+			if (it.subcommandName == "start") {
+				if (guild.cloneHandler.isRunning()) {
+					it.reply_("The Diablo Clone system is already running.").queue_()
+				} else {
+					val helpee = it.getOption("helpee-channel")!!.asChannel.asGuildMessageChannel()
+					val helper = it.getOption("helper-channel")!!.asChannel.asGuildMessageChannel()
+					guild.cloneHandler.start(helpee, helper)
+					it.reply_("Started the Diablo Clone system with the helpee message in ${helpee.asMention} and the helper message in ${helper.asMention}.").queue_()
+				}
+			} else {
+				guild.cloneHandler.stop()
+				it.reply_("Stopped the Diablo Clone system if it was running.").queue_()
+			}
+		}
 		auriel.jda.updateCommands {
 			slash("ping", "Pong!") { restrict(true) }
 			slash("stop", "Stops the bot. Only use if the bot is doing extremely bad things to the server.") { restrict(true, Permission.ADMINISTRATOR) }
@@ -252,7 +272,7 @@ class Commands(private val auriel: Auriel) {
 			}
 			slash("activity", "Set the bot's activity message. The streaming option needs the optional URL.") {
 				restrict(true, Permission.BAN_MEMBERS)
-				option<String>("type", "playing|competing|listening|watching|streaming|clear", required = true)
+				option<String>("type", "playing|competing|listening|watching|streaming|clear", required = true, autocomplete = true)
 				option<String>("message", "The message to set the activity to. Useless if type is 'clear'.", required = true)
 				option<String>("url", "The URL of the stream.")
 			}
@@ -268,39 +288,58 @@ class Commands(private val auriel: Auriel) {
 			slash("config", "Configuration options for the server.") {
 				restrict(true, Permission.BAN_MEMBERS)
 				subcommand("string", "Set a string configuration option.") {
-					option<String>("key", "The key of the configuration option.", required = true)
+					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
 					option<String>("value", "The value of the configuration option.", required = true)
 				}
+				subcommand("longstring", "Set a long string (multi-line) configuration option.") {
+					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
+				}
 				subcommand("channel", "Set a channel configuration option.") {
-					option<String>("key", "The key of the configuration option.", required = true)
+					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
 				}
 				subcommand("long", "Set a long configuration option.") {
-					option<String>("key", "The key of the configuration option.", required = true)
+					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
 					option<Long>("value", "The value of the configuration option.", required = true)
 				}
 				subcommand("boolean", "Set a boolean configuration option.") {
-					option<String>("key", "The key of the configuration option.", required = true)
+					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
 					option<Boolean>("value", "The value of the configuration option.", required = true)
 				}
 				subcommand("int", "Set an integer configuration option.") {
-					option<String>("key", "The key of the configuration option.", required = true)
+					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
 					option<Int>("value", "The value of the configuration option.", required = true)
 				}
 			}
 			slash("timer", "Start and stop specific timers.") {
 				restrict(true, Permission.BAN_MEMBERS)
 				subcommand("start", "Start a timer.") {
-					option<String>("name", "The name of the timer to start.", required = true)
+					option<String>("name", "The name of the timer to start.", required = true, autocomplete = true)
 				}
 				subcommand("stop", "Stop a timer.") {
-					option<String>("name", "The name of the timer to stop.", required = true)
+					option<String>("name", "The name of the timer to stop.", required = true, autocomplete = true)
 				}
+			}
+			slash("clone", "Start or stop the DClone system.") {
+				restrict(true, Permission.BAN_MEMBERS)
+				subcommand("start", "Start the DClone system.") {
+					option<GuildMessageChannel>("helpee-channel", "The channel to post the Request Help message.", required = true)
+					option<GuildMessageChannel>("helper-channel", "The channel to post the Give Help message.", required = true)
+				}
+				subcommand("stop", "Stop the DClone system.")
 			}
 			addCommands(
 				Commands.user("Make DClone Helper").setGuildOnly(true).setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.BAN_MEMBERS)),
 				Commands.user("Remove DClone Helper").setGuildOnly(true).setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.BAN_MEMBERS))
 			)
 		}.queue_()
+		auriel.autoCompletionHandler.addAutocompleteStrings("config", "string", option = "key",
+			"youtube:playlist-id", "youtube:message",
+			"clone:helpee-request", "clone:helpee-cancel", "clone:helper-begin", "clone:helper-mention"
+		)
+		auriel.autoCompletionHandler.addAutocompleteStrings("config", "longstring", option = "key",
+			"youtube:message",
+			"clone:helpee-message", "clone:helper-message"
+		)
 		commandActions["config"] = fun(it: SlashCommandInteractionEvent) {
 			val origKey = it.getOption("key")!!.asString
 			var success = false
@@ -320,7 +359,58 @@ class Commands(private val auriel: Auriel) {
 								success = true
 								guild.youtubeAnnouncer.setMessage(value)
 							}
+						} else if (id == "clone") {
+							when (key) {
+								"helpee-request" -> {
+									success = true
+									guild.data.cloneHelpeeRequestButton = value
+									guild.saveData()
+								}
+								"helpee-cancel" -> {
+									success = true
+									guild.data.cloneHelpeeCancelButton = value
+									guild.saveData()
+								}
+								"helper-begin" -> {
+									success = true
+									guild.data.cloneHelperBeginButton = value
+									guild.saveData()
+								}
+								"helper-mention" -> {
+									success = true
+									guild.data.cloneHelperMentionButton = value
+									guild.saveData()
+								}
+							}
 						}
+					}
+					"longstring" -> {
+						if (id == "youtube") {
+							if (key == "message") success = true
+						} else if (id == "clone") {
+							if (key == "helpee-message") success = true
+							else if (key == "helper-message") success = true
+						}
+						if (success) {
+							auriel.specialMessageHandler.replySingleMessage(it, "Respond with the value you'd like to set $origKey to.", "Configuration option set.") { value ->
+								if (id == "youtube") {
+									if (key == "message") {
+										guild.youtubeAnnouncer.setMessage(value)
+									}
+								} else if (id == "clone") {
+									if (key == "helpee-message") {
+										guild.data.cloneHelpeeMessage = value
+										guild.saveData()
+									} else if (key == "helper-message") {
+										guild.data.cloneHelperMessage = value
+										guild.saveData()
+									}
+								}
+							}
+						} else {
+							it.reply("That is not a valid key to configure.").queue_()
+						}
+						return
 					}
 					"channel" -> {
 						val value = it.channel.asGuildMessageChannel()

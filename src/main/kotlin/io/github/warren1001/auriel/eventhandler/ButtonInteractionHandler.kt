@@ -12,7 +12,20 @@ class ButtonInteractionHandler(private val auriel: Auriel) {
 	
 	fun handle(event: ButtonInteractionEvent) {
 		if (!event.isFromGuild) return
-		if (event.componentId.contains("-")) {
+		if (event.componentId.contains(":")) {
+			val guild = event.guild!!.a()
+			val args = event.componentId.split(":")
+			val id = args[0]
+			val key = args[1]
+			if (id == "clone") {
+				when (key) {
+					"helpee-request" -> guild.cloneHandler.openRequestHelpModal(event)
+					"helpee-cancel" -> guild.cloneHandler.cancelHelp(event)
+					"helper-begin" -> guild.cloneHandler.openGiveHelpModal(event)
+					"helper-mention" -> guild.cloneHandler.replyMention(event)
+				}
+			}
+		} else if (event.componentId.contains("-")) {
 			val guild = event.guild!!
 			val args = event.componentId.split("-")
 			val member = event.member!!
@@ -32,21 +45,6 @@ class ButtonInteractionHandler(private val auriel: Auriel) {
 					} else {
 						event.reply_("You do not have the role.", ephemeral = true).queue_()
 					}
-				}
-			} else if (args[0] == "clone") {
-				val aGuild = auriel.guilds.getGuild(guild.id)
-				if (args[2] == "next") {
-					//aGuild.cloneHandler.nextHelp(event)
-					aGuild.cloneHandler.openGiveHelpModal(event)
-				} else if (args[2] == "finished") {
-					aGuild.cloneHandler.finishHelping(event)
-				} else if (args[2] == "help") {
-					aGuild.cloneHandler.openRequestHelpModal(event)
-				} else if (args[2] == "cancel") {
-					aGuild.cloneHandler.cancelHelp(event)
-				} else if (args[2] == "start") {
-					//aGuild.cloneHandler.beginHelping(event)
-					aGuild.cloneHandler.openGiveHelpModal(event)
 				}
 			}
 		}

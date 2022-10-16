@@ -1,22 +1,24 @@
 package io.github.warren1001.auriel.eventhandler
 
 import io.github.warren1001.auriel.Auriel
-import io.github.warren1001.auriel.util.ChainMessage
-import io.github.warren1001.auriel.util.ChainMessageBuilder
-import io.github.warren1001.auriel.util.MultiSelectMenuMessage
-import io.github.warren1001.auriel.util.MultiSelectMenuMessageBuilder
+import io.github.warren1001.auriel.util.*
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.User
+import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.SelectMenuInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.interactions.InteractionHook
+import net.dv8tion.jda.api.interactions.components.LayoutComponent
 import net.dv8tion.jda.api.interactions.components.selections.SelectOption
 import net.dv8tion.jda.api.utils.messages.MessageCreateData
 
 class SpecialMessageHandler(private val auriel: Auriel) {
 	
-	val multiSelectMessages: MutableMap<String, MultiSelectMenuMessage<*>> = mutableMapOf()
-	val chainMessages: MutableMap<String, ChainMessage<*, *>> = mutableMapOf()
+	private val multiSelectMessages: MutableMap<String, MultiSelectMenuMessage<*>> = mutableMapOf()
+	private val chainMessages: MutableMap<String, ChainMessage<*, *>> = mutableMapOf()
+	private val pinMessages: MutableMap<String, PinMessage> = mutableMapOf()
+	private val singleMessages: MutableMap<String, SingleMessage> = mutableMapOf()
 
 	fun handleSelectMenu(event: SelectMenuInteractionEvent) {
 		if (!event.isFromGuild) return
@@ -36,8 +38,12 @@ class SpecialMessageHandler(private val auriel: Auriel) {
 			chainMessages[event.author.id]?.handleMessageReceived(event)?.let {
 				if (it) chainMessages.remove(event.author.id)
 			}
+		} else if (singleMessages.contains(event.author.id)) {
+			singleMessages[event.author.id]?.handleMessageReceived(event)?.let { singleMessages.remove(event.author.id) }
 		} else {
-			auriel.guilds.handleMessageReceived(event)
+			if (!auriel.guilds.handleMessageReceived(event) && pinMessages.contains(event.channel.id)) {
+				pinMessages[event.channel.id]!!.countMessage(event)
+			}
 		}
 	}
 	
@@ -68,6 +74,23 @@ class SpecialMessageHandler(private val auriel: Auriel) {
 		val message = build.build()
 		chainMessages[build.userId!!] = message
 		message.createInitialReplyCallback(build.createMessage!!)
+	}
+	
+	fun sendPinMessage(repostAfter: Int, channel: GuildMessageChannel, content: String, components: Collection<LayoutComponent>): PinMessage {
+		val message = PinMessage(repostAfter, channel, content, components)
+		pinMessages[channel.id] = message
+		return message
+	}
+	
+	fun deletePinMessage(message: PinMessage) {
+		pinMessages.remove(message.channelId)
+		message.delete()
+	}
+	
+	fun replySingleMessage(event: SlashCommandInteractionEvent, prompt: String, complete: String, finished: (String) -> Unit) {
+		val message = SingleMessage(prompt, complete, finished)
+		singleMessages[event.user.id] = message
+		message.prompt(event)
 	}
 
 }

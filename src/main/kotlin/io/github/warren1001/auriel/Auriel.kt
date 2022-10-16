@@ -7,12 +7,14 @@ import com.google.api.services.youtube.YouTubeRequestInitializer
 import com.mongodb.client.MongoDatabase
 import dev.minn.jda.ktx.events.listener
 import dev.minn.jda.ktx.jdabuilder.light
+import dev.minn.jda.ktx.messages.MessageCreate
 import dev.minn.jda.ktx.messages.SendDefaults
 import io.github.warren1001.auriel.command.Commands
 import io.github.warren1001.auriel.eventhandler.ButtonInteractionHandler
+import io.github.warren1001.auriel.eventhandler.CommandAutoCompleteInteractionHandler
 import io.github.warren1001.auriel.eventhandler.ModalInteractionHandler
-import io.github.warren1001.auriel.guild.Guilds
 import io.github.warren1001.auriel.eventhandler.SpecialMessageHandler
+import io.github.warren1001.auriel.guild.Guilds
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.Member
@@ -20,11 +22,13 @@ import net.dv8tion.jda.api.entities.User
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
+import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.SelectMenuInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.events.session.ReadyEvent
 import net.dv8tion.jda.api.exceptions.ErrorHandler
+import net.dv8tion.jda.api.interactions.components.LayoutComponent
 import net.dv8tion.jda.api.requests.ErrorResponse
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.requests.RestAction
@@ -44,14 +48,15 @@ class Auriel(val jda: JDA, youtubeToken: String) {
 	
 	private val mongo = KMongo.createClient()
 	private val buttonInteractionHandler = ButtonInteractionHandler(this)
-	private val modalInteractionHandler = ModalInteractionHandler(this)
+	private val modalInteractionHandler = ModalInteractionHandler()
 	
 	val youtube: YouTube = YouTube.Builder(GoogleNetHttpTransport.newTrustedTransport(), GsonFactory.getDefaultInstance()) {}.setApplicationName("new-video-checker")
 		.setYouTubeRequestInitializer(YouTubeRequestInitializer(youtubeToken)).build()
 	val database: MongoDatabase = mongo.getDatabase("test2")
-	val commands = Commands(this)
 	val guilds = Guilds(this)
 	val specialMessageHandler = SpecialMessageHandler(this)
+	val autoCompletionHandler = CommandAutoCompleteInteractionHandler()
+	val commands = Commands(this)
 	
 	init {
 		SendDefaults.ephemeral = true
@@ -80,6 +85,13 @@ class Auriel(val jda: JDA, youtubeToken: String) {
 		jda.listener<ModalInteractionEvent> {
 			try {
 				modalInteractionHandler.onModalInteraction(it)
+			} catch(e: Exception) {
+				warren("${e.message}\n${e.stackTraceToString()}")
+			}
+		}
+		jda.listener<CommandAutoCompleteInteractionEvent> {
+			try {
+				autoCompletionHandler.onCommandAutoCompleteInteraction(it)
 			} catch(e: Exception) {
 				warren("${e.message}\n${e.stackTraceToString()}")
 			}
@@ -142,6 +154,8 @@ fun User.fullMention() = "$asMention ($name#$discriminator)"
 fun String.truncate(length: Int): String = substring(0, this.length.coerceAtMost(length))
 
 fun MessageChannel.message(message: String) = sendMessage(message.truncate(2000))
+
+fun MessageChannel.message(message: String, components: Collection<LayoutComponent>) = sendMessage(MessageCreate(message.truncate(2000), components = components))
 
 fun AuditableRestAction<Void>.queueDelete() = queue_(failure = ErrorHandler().ignore(ErrorResponse.UNKNOWN_MESSAGE))
 

@@ -32,17 +32,17 @@ class Guilds(private val auriel: Auriel) {
 		tzTracker = TerrorZoneTracker(this, data)
 	}
 	
-	fun handleMessageReceived(event: MessageReceivedEvent) {
-		if (!event.channelType.isGuild) return
-		if (tzTracker.handle(event)) return
+	fun handleMessageReceived(event: MessageReceivedEvent): Boolean {
+		if (!event.channelType.isGuild) return false
+		if (tzTracker.handle(event)) return false
 		if (event.author.isBot) {
 			if (event.author.id == auriel.jda.selfUser.id && event.channelType == ChannelType.NEWS) {
 				event.message.crosspost().queue_()
 			}
-			return
+			return false
 		}
-		val guild = guilds[event.guild.id] ?: return
-		guild.handleMessageReceived(event)
+		val guild = guilds[event.guild.id] ?: return false
+		return guild.handleMessageReceived(event)
 	}
 	
 	fun getGuild(id: String): AGuild = guilds.computeIfAbsent(id) { AGuild(auriel, it, this) }
