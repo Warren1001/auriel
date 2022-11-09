@@ -8,6 +8,7 @@ import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.Auriel
 import io.github.warren1001.auriel.a
 import io.github.warren1001.auriel.d2.tz.TerrorZone
+import io.github.warren1001.auriel.guild.ConfigError
 import io.github.warren1001.auriel.queue_
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Activity
@@ -297,7 +298,7 @@ class Commands(private val auriel: Auriel) {
 				subcommand("channel", "Set a channel configuration option.") {
 					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
 				}
-				subcommand("long", "Set a long configuration option.") {
+				subcommand("number", "Set a numerical configuration option.") {
 					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
 					option<Long>("value", "The value of the configuration option.", required = true)
 				}
@@ -305,9 +306,8 @@ class Commands(private val auriel: Auriel) {
 					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
 					option<Boolean>("value", "The value of the configuration option.", required = true)
 				}
-				subcommand("int", "Set an integer configuration option.") {
+				subcommand("show", "Show the value and relevant information for a configuration option.") {
 					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
-					option<Int>("value", "The value of the configuration option.", required = true)
 				}
 			}
 			slash("timer", "Start and stop specific timers.") {
@@ -332,17 +332,9 @@ class Commands(private val auriel: Auriel) {
 				Commands.user("Remove DClone Helper").setGuildOnly(true).setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.BAN_MEMBERS))
 			)
 		}.queue_()
-		auriel.autoCompletionHandler.addAutocompleteStrings("config", "string", option = "key",
-			"youtube:playlist-id", "youtube:message",
-			"clone:helpee-request", "clone:helpee-cancel", "clone:helper-begin", "clone:helper-mention"
-		)
-		auriel.autoCompletionHandler.addAutocompleteStrings("config", "longstring", option = "key",
-			"youtube:message",
-			"clone:helpee-message", "clone:helper-message"
-		)
 		commandActions["config"] = fun(it: SlashCommandInteractionEvent) {
 			val origKey = it.getOption("key")!!.asString
-			var success = false
+			var success = ConfigError.NONE
 			if (origKey.contains(":")) {
 				val guild = it.guild!!.a()
 				val args = origKey.split(":")
@@ -351,61 +343,24 @@ class Commands(private val auriel: Auriel) {
 				when (it.subcommandName) {
 					"string" -> {
 						val value = it.getOption("value")!!.asString
-						if (id == "youtube") {
-							if (key == "playlist-id") {
-								success = true
-								guild.youtubeAnnouncer.setPlaylistId(value)
-							} else if (key == "message") {
-								success = true
-								guild.youtubeAnnouncer.setMessage(value)
-							}
-						} else if (id == "clone") {
-							when (key) {
-								"helpee-request" -> {
-									success = true
-									guild.data.cloneHelpeeRequestButton = value
-									guild.saveData()
-								}
-								"helpee-cancel" -> {
-									success = true
-									guild.data.cloneHelpeeCancelButton = value
-									guild.saveData()
-								}
-								"helper-begin" -> {
-									success = true
-									guild.data.cloneHelperBeginButton = value
-									guild.saveData()
-								}
-								"helper-mention" -> {
-									success = true
-									guild.data.cloneHelperMentionButton = value
-									guild.saveData()
-								}
-							}
+						success = auriel.config.modifyConfigValue(it.member!!, origKey) {
+							this.guild = it.guild!!
+							this.channel = it.channel.asGuildMessageChannel()
+							this.author = it.user
+							this.value = value
 						}
 					}
 					"longstring" -> {
-						if (id == "youtube") {
-							if (key == "message") success = true
-						} else if (id == "clone") {
-							if (key == "helpee-message") success = true
-							else if (key == "helper-message") success = true
-						}
-						if (success) {
+						success = if (auriel.config.hasKey(origKey)) ConfigError.NONE else ConfigError.NOT_FOUND
+						if (success == ConfigError.NONE) {
 							auriel.specialMessageHandler.replySingleMessage(it, "Respond with the value you'd like to set $origKey to.", "Configuration option set.") { value ->
-								if (id == "youtube") {
-									if (key == "message") {
-										guild.youtubeAnnouncer.setMessage(value)
-									}
-								} else if (id == "clone") {
-									if (key == "helpee-message") {
-										guild.data.cloneHelpeeMessage = value
-										guild.saveData()
-									} else if (key == "helper-message") {
-										guild.data.cloneHelperMessage = value
-										guild.saveData()
-									}
+								/*success = */auriel.config.modifyConfigValue(it.member!!, origKey) {
+									this.guild = it.guild!!
+									this.channel = it.channel.asGuildMessageChannel()
+									this.author = it.user
+									this.value = value
 								}
+								// TODO show wrong data type error message when applicable
 							}
 						} else {
 							it.reply("That is not a valid key to configure.").queue_()
@@ -414,74 +369,49 @@ class Commands(private val auriel: Auriel) {
 					}
 					"channel" -> {
 						val value = it.channel.asGuildMessageChannel()
-						if (id == "youtube") {
-							if (key == "channel") {
-								success = true
-								guild.youtubeAnnouncer.setChannelId(value.id)
-							}
-						} else if (id == "guild") {
-							if (key == "logging") {
-								success = true
-								guild.setLoggingChannel(value)
-							} else if (key == "fallback") {
-								success = true
-								guild.setFallbackChannel(value)
-							}
-						} else if (id == "tz") {
-							if (key == "source") {
-								if (!it.member!!.hasPermission(Permission.ADMINISTRATOR)) {
-									it.reply_("You do not have the permission to set this option.").queue_()
-									return
-								}
-								success = true
-								auriel.guilds.tzTracker.setChannel(it.channel.id)
-							}
+						success = auriel.config.modifyConfigValue(it.member!!, origKey) {
+							this.guild = it.guild!!
+							this.channel = it.channel.asGuildMessageChannel()
+							this.author = it.user
+							this.value = value
 						}
 					}
-					"long" -> {
+					"number" -> {
 						val value = it.getOption("value")!!.asLong
-						if (id == "channel") {
-							if (key == "max-message-age") {
-								success = true
-								it.channel.asGuildMessageChannel().a().setMaxMessageAge(value)
-							} else if (key == "message-age-interval") {
-								success = true
-								it.channel.asGuildMessageChannel().a().setMessageAgeInterval(value)
-							}
+						success = auriel.config.modifyConfigValue(it.member!!, origKey) {
+							this.guild = it.guild!!
+							this.channel = it.channel.asGuildMessageChannel()
+							this.author = it.user
+							this.value = value
 						}
 					}
 					"boolean" -> {
 						val value = it.getOption("value")!!.asBoolean
-						if (id == "channel") {
-							if (key == "only-one-message") {
-								success = true
-								it.channel.asGuildMessageChannel().a().setOnlyOneMessage(value)
-							} else if (key == "allow-reposts") {
-								success = true
-								it.channel.asGuildMessageChannel().a().setAllowReposts(value)
-							}
-						} else if (id == "guild") {
-							if (key == "crosspost") {
-								success = true
-								guild.setCrosspost(value)
-							}
+						success = auriel.config.modifyConfigValue(it.member!!, origKey) {
+							this.guild = it.guild!!
+							this.channel = it.channel.asGuildMessageChannel()
+							this.author = it.user
+							this.value = value
 						}
 					}
-					"int" -> {
-						val value = it.getOption("value")!!.asInt
-						if (id == "channel") {
-							if (key == "line-limit") {
-								success = true
-								it.channel.asGuildMessageChannel().a().setLineLimit(value)
-							}
-						}
+					"show" -> {
+						// TODO
 					}
 				}
 			}
-			if (success) {
-				it.reply("Configuration option set.").queue_()
-			} else {
-				it.reply("That is not a valid key to configure.").queue_()
+			when (success) {
+				ConfigError.NONE -> {
+					it.reply_("Configuration option set.").queue_()
+				}
+				ConfigError.NOT_FOUND -> {
+					it.reply_("That is not a valid key to configure.").queue_()
+				}
+				ConfigError.INVALID_DATA_TYPE -> {
+					it.reply_("That is not a valid value for this key. Use `/config show` to see the proper values for this key.").queue_()
+				}
+				ConfigError.NO_PERMISSION -> {
+					it.reply_("You do not have permission to set this option.").queue_()
+				}
 			}
 		}
 	}

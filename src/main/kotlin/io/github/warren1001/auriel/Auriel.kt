@@ -14,6 +14,7 @@ import io.github.warren1001.auriel.eventhandler.ButtonInteractionHandler
 import io.github.warren1001.auriel.eventhandler.CommandAutoCompleteInteractionHandler
 import io.github.warren1001.auriel.eventhandler.ModalInteractionHandler
 import io.github.warren1001.auriel.eventhandler.SpecialMessageHandler
+import io.github.warren1001.auriel.guild.Config
 import io.github.warren1001.auriel.guild.Guilds
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.Guild
@@ -38,6 +39,7 @@ import net.dv8tion.jda.api.utils.MemberCachePolicy
 import net.dv8tion.jda.api.utils.cache.CacheFlag
 import org.litote.kmongo.KMongo
 import org.litote.kmongo.util.UpdateConfiguration
+import java.util.concurrent.TimeUnit
 import kotlin.system.exitProcess
 
 class Auriel(val jda: JDA, youtubeToken: String) {
@@ -52,11 +54,12 @@ class Auriel(val jda: JDA, youtubeToken: String) {
 	
 	val youtube: YouTube = YouTube.Builder(GoogleNetHttpTransport.newTrustedTransport(), GsonFactory.getDefaultInstance()) {}.setApplicationName("new-video-checker")
 		.setYouTubeRequestInitializer(YouTubeRequestInitializer(youtubeToken)).build()
-	val database: MongoDatabase = mongo.getDatabase("test2")
+	val database: MongoDatabase = mongo.getDatabase("auriel")
 	val guilds = Guilds(this)
 	val specialMessageHandler = SpecialMessageHandler(this)
 	val autoCompletionHandler = CommandAutoCompleteInteractionHandler()
 	val commands = Commands(this)
+	val config = Config(this)
 	
 	init {
 		SendDefaults.ephemeral = true
@@ -131,13 +134,13 @@ fun main(args: Array<String>) {
 	}
 }
 
-fun User.dm(message: String) = openPrivateChannel().queue_ { it.message(message).queue_() }
+fun User.dm(message: String) = openPrivateChannel().queue_ { it.fullMessage(message).queue_() }
 
 fun Member.dmWithFallback(message: String) = user.openPrivateChannel().queue { it.message(message).queue_(failure = ErrorHandler().handle(ErrorResponse.CANNOT_SEND_TO_USER) {
 	val aGuild = auriel.guilds.getGuild(guild.id)
-	val fallbackChannelId = aGuild.data.fallbackChannelId
+	val fallbackChannelId = aGuild.data.get("guild:fallbackChannel")
 	if (fallbackChannelId != null) {
-		guild.getTextChannelById(fallbackChannelId)!!.message("*${user.asMention} I could not DM you, so I'm forced to message you here:*\n$message").queue_()
+		guild.getTextChannelById(fallbackChannelId as String)!!.message("*${user.asMention} I could not DM you, so I'm forced to message you here:*\n$message").queue_()
 	} else {
 		aGuild.logDMFailure(this, message)
 	}
@@ -151,16 +154,47 @@ fun Member.fullMention() = "$asMention (${user.name}#${user.discriminator})"
 
 fun User.fullMention() = "$asMention ($name#$discriminator)"
 
+fun User.isWarren() = id == "164118147073310721"
+
+fun Member.isWarren() = id == "164118147073310721"
+
 fun String.truncate(length: Int): String = substring(0, this.length.coerceAtMost(length))
 
 fun MessageChannel.message(message: String) = sendMessage(message.truncate(2000))
 
 fun MessageChannel.message(message: String, components: Collection<LayoutComponent>) = sendMessage(MessageCreate(message.truncate(2000), components = components))
 
+fun MessageChannel.fullMessage(message: String): RestAction<out Any> {
+	return if (message.length > 2000) {
+		val parts = message.chunked(2000)
+		var previousRestAction: RestAction<out Any>? = null
+		for ((i, part) in parts.withIndex()) {
+			previousRestAction = previousRestAction?.and(sendMessage(part).delay(50L * i, TimeUnit.MILLISECONDS)) ?: sendMessage(part).delay(50L * i, TimeUnit.MILLISECONDS)
+		}
+		previousRestAction!!
+	} else {
+		sendMessage(message)
+	}
+}
+
+fun MessageChannel.fullMessage(message: String, components: Collection<LayoutComponent>): RestAction<out Any> {
+	return if (message.length > 2000) {
+		val parts = message.chunked(2000)
+		var previousRestAction: RestAction<out Any>? = null
+		for ((i, part) in parts.withIndex()) {
+			previousRestAction = previousRestAction?.and(sendMessage(MessageCreate(part, components = components)).delay(50L * i, TimeUnit.MILLISECONDS))
+				?: sendMessage(MessageCreate(part, components = components)).delay(50L * i, TimeUnit.MILLISECONDS)
+		}
+		previousRestAction!!
+	} else {
+		sendMessage(MessageCreate(message, components = components))
+	}
+}
+
 fun AuditableRestAction<Void>.queueDelete() = queue_(failure = ErrorHandler().ignore(ErrorResponse.UNKNOWN_MESSAGE))
 
 fun <T> RestAction<T>.queue_(failure: ErrorHandler = ErrorHandler(), success: ((T) -> Unit)? = null): Unit = queue(success,
-	failure.handle({ true }) { auriel.warren("${it.message}\n${it.stackTraceToString()}") })
+	failure.handle({ true }) { auriel.warren(it.stackTraceToString()) })
 
 fun String.quote(truncateLength: Int = 2000): String {
 	return if (length > truncateLength - 10) "```\n${replace("```", "`\\``").truncate(truncateLength - 10 - countMatches("```"))}...```" else "```\n$this```"

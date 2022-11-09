@@ -34,8 +34,6 @@ class CloneHandler(private val auriel: Auriel, private val guild: AGuild) {
 	fun stop() {
 		running = false
 		queue.clear()
-		helpees.clear()
-		helpers.clear()
 		helpeeButtons = null
 		helperButton = null
 		helpeeMessage?.let { auriel.specialMessageHandler.deletePinMessage(it) }
@@ -48,18 +46,18 @@ class CloneHandler(private val auriel: Auriel, private val guild: AGuild) {
 	
 	fun start(helpeeChannel: GuildMessageChannel, helperChannel: GuildMessageChannel) {
 		helpeeButtons = listOf(ActionRow.of(
-			Button.primary("clone:helpee-request", guild.data.cloneHelpeeRequestButton),
-			Button.danger("clone:helpee-cancel", guild.data.cloneHelpeeCancelButton)
+			Button.primary("clone:helpee-request", guild.data.getAsString("clone:helpee-request-button")),
+			Button.danger("clone:helpee-cancel", guild.data.getAsString("clone:helpee-cancel-button"))
 		))
 		helperButton = listOf(ActionRow.of(
-			Button.primary("clone:helper-begin", guild.data.cloneHelperBeginButton),
-			Button.primary("clone:helper-mention", guild.data.cloneHelperMentionButton)
+			Button.primary("clone:helper-begin", guild.data.getAsString("clone:helper-begin-button")),
+			Button.primary("clone:helper-mention", guild.data.getAsString("clone:helper-mention-button")),
 		))
 		helpeeMessage = auriel.specialMessageHandler.sendPinMessage(2, helpeeChannel,
-			guild.data.cloneHelpeeMessage.replace("%position%", helped.toString()).replace("%remaining%", queue.size.toString()),
+			guild.data.getAsString("clone:helpee-message").replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()),
 			helpeeButtons!!)
 		helperMessage = auriel.specialMessageHandler.sendPinMessage(1, helperChannel,
-			guild.data.cloneHelperMessage.replace("%position%", helped.toString()).replace("%remaining%", queue.size.toString()),
+			guild.data.getAsString("clone:helper-message").replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()),
 			helperButton!!)
 		running = true
 	}
@@ -85,6 +83,7 @@ class CloneHandler(private val auriel: Auriel, private val guild: AGuild) {
 		} else {
 			val info = queue.poll()
 			if (info == null) {
+				updateMessages()
 				event.reply_("Queue is empty.").queue_()
 			} else {
 				helped++
@@ -104,8 +103,8 @@ class CloneHandler(private val auriel: Auriel, private val guild: AGuild) {
 	}
 	
 	private fun updateMessages() {
-		helpeeMessage!!.editContent(guild.data.cloneHelpeeMessage.replace("%position%", helped.toString()).replace("%remaining%", queue.size.toString()))
-		helperMessage!!.editContent(guild.data.cloneHelperMessage.replace("%position%", helped.toString()).replace("%remaining%", queue.size.toString()))
+		helpeeMessage?.editContent(guild.data.getAsString("clone:helpee-message").replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()))
+		helperMessage?.editContent(guild.data.getAsString("clone:helper-message").replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()))
 	}
 	
 	fun completedHelp(event: ModalInteractionEvent) {

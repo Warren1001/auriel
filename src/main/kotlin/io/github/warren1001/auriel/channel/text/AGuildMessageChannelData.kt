@@ -1,16 +1,11 @@
-package io.github.warren1001.auriel.guild
+package io.github.warren1001.auriel.channel.text
 
-import io.github.warren1001.auriel.util.filter.Filter
 import io.github.warren1001.auriel.util.filter.WordFilter
-import io.github.warren1001.auriel.util.youtube.YoutubeData
 
-data class AGuildData(val _id: String) {
+data class AGuildMessageChannelData(val _id: String) {
 	
 	val configData = mutableMapOf<String, Any>()
 	val wordFilters = mutableSetOf<WordFilter>()
-	val spamFilters = mutableSetOf<Filter>()
-	var youtubeData: YoutubeData = YoutubeData()
-	
 	
 	fun set(key: String, value: Any): Boolean {
 		if (configData[key] == value) return false
@@ -29,5 +24,5 @@ data class AGuildData(val _id: String) {
 	fun getAsString(key: String) = get(key) as String
 	fun getAsNumber(key: String) = get(key) as Number
 	fun getAsBoolean(key: String) = get(key) as Boolean
-	
+
 }

@@ -47,6 +47,8 @@ class Guilds(private val auriel: Auriel) {
 	
 	fun getGuild(id: String): AGuild = guilds.computeIfAbsent(id) { AGuild(auriel, it, this) }
 	
+	fun forEachGuild(block: (AGuild) -> Unit) = guilds.values.forEach(block)
+	
 	fun handleSelectMenuInteraction(event: SelectMenuInteractionEvent) {
 		if (!event.isFromGuild) return
 		val guild = guilds[event.guild!!.id] ?: return

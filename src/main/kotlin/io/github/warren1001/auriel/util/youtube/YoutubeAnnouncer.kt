@@ -45,18 +45,19 @@ class YoutubeAnnouncer(private val auriel: Auriel, private val guild: AGuild, pr
 	
 	fun setChannelId(channelId: String) {
 		data.channelId = channelId
-		guild.saveData()
 	}
 	
-	fun setPlaylistId(playlistId: String) {
+	fun setPlaylistId(playlistId: String): Boolean {
+		if (data.playListId == playlistId) return false
 		playlistItemsRequest.playlistId = playlistId
 		data.playListId = playlistId
-		guild.saveData()
+		return true
 	}
 	
-	fun setMessage(message: String) {
+	fun setMessage(message: String): Boolean {
+		if (data.message == message) return false
 		data.message = message
-		guild.saveData()
+		return true
 	}
 	
 	fun start(): Boolean {

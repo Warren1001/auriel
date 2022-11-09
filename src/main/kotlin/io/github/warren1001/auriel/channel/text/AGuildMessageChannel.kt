@@ -20,7 +20,7 @@ class AGuildMessageChannel {
 	private val guild: AGuild
 	private val id: String
 	
-	val data: AGuildMessageData
+	val data: AGuildMessageChannelData
 	
 	private val lastMemberMessage = mutableMapOf<User, Message>()
 	private var messageAgeTimer: Timer? = null
@@ -29,11 +29,11 @@ class AGuildMessageChannel {
 		this.auriel = auriel
 		this.guild = guild
 		this.id = id
-		data = AGuildMessageData(id)
+		data = AGuildMessageChannelData(id)
 		setup()
 	}
 	
-	constructor(auriel: Auriel, guild: AGuild, id: String, data: AGuildMessageData) {
+	constructor(auriel: Auriel, guild: AGuild, id: String, data: AGuildMessageChannelData) {
 		this.auriel = auriel
 		this.guild = guild
 		this.id = id
@@ -76,17 +76,18 @@ class AGuildMessageChannel {
 				return true
 			}
 			
-			if (message.split('\n').size > data.lineLimit) {
+			val lineLimit = data.getAsNumber("channel:line-limit").toInt()
+			if (message.split('\n').size > lineLimit) {
 				event.message.delete().queue_()
-				event.author.dm("Your message was deleted from ${channel.asMention} in **${event.guild.name}** because it contained too many lines (limit of **${data.lineLimit}**).\n" +
+				event.author.dm("Your message was deleted from ${channel.asMention} in **${event.guild.name}** because it contained too many lines (limit of **$lineLimit**).\n" +
 						"Here's your message incase you didn't save it:")
 				event.author.dm(message.quote())
-				guild.logMessageDelete(author, event.channel.asGuildMessageChannel(), "Exceeded line limit of ${data.lineLimit}", message)
+				guild.logMessageDelete(author, event.channel.asGuildMessageChannel(), "Exceeded line limit of $lineLimit", message)
 				return true
 			}
 			
 			// only one message
-			if (data.onlyOneMessage) {
+			if (data.getAsBoolean("channel:only-one-message")) {
 				val lastMessage = lastMemberMessage[author.user]
 				lastMessage?.delete()?.queueDelete()
 				lastMemberMessage[author.user] = event.message
@@ -98,10 +99,12 @@ class AGuildMessageChannel {
 	
 	fun startMessageAgeTimer(): Boolean {
 		messageAgeTimer?.cancel()
-		if (data.maxMessageAge > 0L && data.messageAgeInterval > 0L) {
-			messageAgeTimer = timer("$id-messageAge", true, 60 * 1000, data.messageAgeInterval) {
+		val maxMessageAge = data.getAsNumber("channel:max-message-age").toLong()
+		val messageAgeInterval = data.getAsNumber("channel:message-age-interval").toLong()
+		if (maxMessageAge > 0L && messageAgeInterval > 0L) {
+			messageAgeTimer = timer("$id-messageAge", true, 60 * 1000, messageAgeInterval) {
 				try {
-					MessageHistory.getHistoryBefore(auriel.jda.getTextChannelById(id)!!, TimeUtil.getDiscordTimestamp(System.currentTimeMillis() - data.maxMessageAge).toString())
+					MessageHistory.getHistoryBefore(auriel.jda.getTextChannelById(id)!!, TimeUtil.getDiscordTimestamp(System.currentTimeMillis() - maxMessageAge).toString())
 						.queue_ { it.channel.asGuildMessageChannel().purgeMessages(it.retrievedHistory.filter { it.member != null && !it.member!!.hasPermission(Permission.BAN_MEMBERS) }) }
 				} catch (e: Exception) {
 					auriel.warren("${e.message}\n${e.stackTraceToString()}")
@@ -117,8 +120,8 @@ class AGuildMessageChannel {
 		messageAgeTimer = null
 	}
 	
-	private fun deleteAllButOneMessage() {
-		if (data.onlyOneMessage) {
+	fun deleteAllButOneMessage() {
+		if (data.getAsBoolean("channel:only-one-message")) {
 			MessageHistory.getHistoryFromBeginning(auriel.jda.getTextChannelById(id)!!).queue_ { history ->
 				history.channel.asTextChannel().purgeMessages(history.retrievedHistory.filter {
 					if (it.author.isBot || (it.member != null && it.member!!.hasPermission(Permission.BAN_MEMBERS))) {
@@ -134,22 +137,7 @@ class AGuildMessageChannel {
 		}
 	}
 	
-	fun setMaxMessageAge(maxMessageAge: Long) {
-		data.maxMessageAge = maxMessageAge
-		saveData()
-	}
-	
-	fun setMessageAgeInterval(messageAgeInterval: Long) {
-		data.messageAgeInterval = messageAgeInterval
-		saveData()
-	}
-	
-	fun setAllowReposts(value: Boolean) {
-		data.allowBotReposts = value
-		saveData()
-	}
-	
-	fun allowsReposting() = data.allowBotReposts
+	fun allowsReposting() = data.getAsBoolean("channel:allow-reposts")
 	
 	fun addWordFilter(name: String, pattern: String, replace: String? = null, literal: Boolean = false, caseSensitive: Boolean = false) {
 		val options = mutableSetOf<RegexOption>()
@@ -164,17 +152,6 @@ class AGuildMessageChannel {
 		val removed = data.wordFilters.removeIf { it.source == name }
 		if (removed) saveData()
 		return removed
-	}
-	
-	fun setOnlyOneMessage(value: Boolean) {
-		data.onlyOneMessage = value
-		deleteAllButOneMessage()
-		saveData()
-	}
-	
-	fun setLineLimit(value: Int) {
-		data.lineLimit = value
-		saveData()
 	}
 	
 }

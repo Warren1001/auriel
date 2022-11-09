@@ -11,9 +11,11 @@ class TerrorZoneTracker(private val guilds: Guilds, val data: TerrorZoneTrackerD
 	
 	fun saveData() = guilds.tzTrackerCollection.updateOne(data, options = UpdateOptions().upsert(true))
 	
-	fun setChannel(id: String) {
+	fun setChannel(id: String, save: Boolean = true): Boolean {
+		if (data.senderChannelId == id) return false
 		data.senderChannelId = id
-		saveData()
+		if (save) saveData()
+		return true
 	}
 	
 	fun addGuild(id: String) {
@@ -40,7 +42,7 @@ class TerrorZoneTracker(private val guilds: Guilds, val data: TerrorZoneTrackerD
 		
 		if (utcTimestamp == data.lastUpdate && trust <= data.lastTrust) return true
 		
-		data.guilds.forEach { guilds.getGuild(it).onTerrorZoneChange(zone) }
+		data.guilds.forEach { guilds.getGuild(it).onTerrorZoneChange(zone, utcTimestamp == data.lastUpdate && trust > data.lastTrust) }
 		
 		data.lastUpdate = utcTimestamp
 		data.lastTrust = trust

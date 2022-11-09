@@ -7,7 +7,7 @@ import dev.minn.jda.ktx.messages.MessageCreateBuilder
 import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.*
 import io.github.warren1001.auriel.channel.text.AGuildMessageChannel
-import io.github.warren1001.auriel.channel.text.AGuildMessageData
+import io.github.warren1001.auriel.channel.text.AGuildMessageChannelData
 import io.github.warren1001.auriel.d2.clone.CloneHandler
 import io.github.warren1001.auriel.d2.tz.TerrorZone
 import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerGuildData
@@ -37,18 +37,19 @@ class AGuild {
 	val id: String
 	
 	val data: AGuildData
-	val textChannelDataCollection: MongoCollection<AGuildMessageData>
+	val textChannelDataCollection: MongoCollection<AGuildMessageChannelData>
 	val tzGuildData: TerrorZoneTrackerGuildData
 	val cloneHandler: CloneHandler
 	val youtubeAnnouncer: YoutubeAnnouncer
 	
 	private val guildMessageChannels = mutableMapOf<String, AGuildMessageChannel>()
+	private var lastTZAnnouncement: Message? = null
 	
 	constructor(auriel: Auriel, id: String, guilds: Guilds) {
 		this.auriel = auriel
 		this.id = id
 		data = guilds.guildDataCollection.findOneById(id) ?: AGuildData(id)
-		textChannelDataCollection = auriel.database.getCollection("$id-textChannels", AGuildMessageData::class.java)
+		textChannelDataCollection = auriel.database.getCollection("$id-textChannels", AGuildMessageChannelData::class.java)
 		tzGuildData = guilds.tzTrackerRoleCollection.findOneById(id) ?: TerrorZoneTrackerGuildData(id)
 		cloneHandler = CloneHandler(auriel, this)
 		youtubeAnnouncer = YoutubeAnnouncer(auriel, this, data.youtubeData, auriel.youtube)
@@ -59,7 +60,7 @@ class AGuild {
 		this.auriel = auriel
 		this.id = id
 		this.data = data
-		textChannelDataCollection = auriel.database.getCollection("$id-textChannels", AGuildMessageData::class.java)
+		textChannelDataCollection = auriel.database.getCollection("$id-textChannels", AGuildMessageChannelData::class.java)
 		tzGuildData = guilds.tzTrackerRoleCollection.findOneById(id) ?: TerrorZoneTrackerGuildData(id)
 		cloneHandler = CloneHandler(auriel, this)
 		youtubeAnnouncer = YoutubeAnnouncer(auriel, this, data.youtubeData, auriel.youtube)
@@ -73,25 +74,11 @@ class AGuild {
 	
 	fun getGuildMessageChannel(channel: GuildMessageChannel): AGuildMessageChannel = guildMessageChannels.computeIfAbsent(channel.id) { AGuildMessageChannel(auriel, this, it) }
 	
+	fun forEachGuildMessageChannel(action: (AGuildMessageChannel) -> Unit) = guildMessageChannels.values.forEach(action)
+	
 	private fun saveTZGuildData() = auriel.guilds.tzTrackerRoleCollection.updateOne(tzGuildData, UpdateOptions().upsert(true))
 	
 	fun saveData() = auriel.guilds.guildDataCollection.updateOne(data, options = UpdateOptions().upsert(true))
-	
-	fun setLoggingChannel(channel: GuildMessageChannel) {
-		data.logChannelId = channel.id
-		if (data.fallbackChannelId == null) data.fallbackChannelId = channel.id
-		saveData()
-	}
-	
-	fun setFallbackChannel(channel: GuildMessageChannel) {
-		data.fallbackChannelId = channel.id
-		saveData()
-	}
-	
-	fun setCrosspost(crosspost: Boolean) {
-		data.crosspost = crosspost
-		saveData()
-	}
 	
 	fun setupTZ(channelId: String, format: String, roles: Map<TerrorZone, Role?>) {
 		tzGuildData.channelId = channelId
@@ -149,7 +136,7 @@ class AGuild {
 			
 		}
 		
-		if (event.channelType == ChannelType.NEWS && data.crosspost) event.message.crosspost().queue_()
+		if (event.channelType == ChannelType.NEWS && data.get("guild:crosspost") as Boolean) event.message.crosspost().queue_()
 		
 		return aChannel.handleMessageReceived(event)
 		
@@ -179,7 +166,7 @@ class AGuild {
 		})
 	}
 	
-	private fun log(embed: MessageEmbed) = data.logChannelId?.let { auriel.jda.getTextChannelById(it)?.sendMessageEmbeds(embed)?.queue_() }
+	private fun log(embed: MessageEmbed) = data.get("guild:logChannel")?.let { auriel.jda.getTextChannelById(it as String)?.sendMessageEmbeds(embed)?.queue_() }
 	
 	fun logDMFailure(member: Member, message: String) {
 		log(Embed(title = "DM Failure", color = Color.BLACK.rgb, timestamp = Instant.now()) {
@@ -214,9 +201,10 @@ class AGuild {
 		return removed
 	}
 	
-	fun onTerrorZoneChange(tz: TerrorZone) {
+	fun onTerrorZoneChange(tz: TerrorZone, deleteLast: Boolean = false) {
+		if (deleteLast) lastTZAnnouncement?.delete()?.queueDelete()
 		auriel.jda.getChannelById(GuildMessageChannel::class.java, tzGuildData.channelId!!)!!
-			.message(tzGuildData.messageTemplate!!.replace("%ROLE%", tzGuildData.roleMentions!![tz]!!).replace("%ZONE%", tz.zoneName)).queue_()
+			.message(tzGuildData.messageTemplate!!.replace("%ROLE%", tzGuildData.roleMentions!![tz]!!).replace("%ZONE%", tz.zoneName)).queue_ { lastTZAnnouncement = it }
 	}
 	
 }
