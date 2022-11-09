@@ -68,35 +68,35 @@ class Auriel(val jda: JDA, youtubeToken: String) {
 			try {
 				specialMessageHandler.handleMessageReceived(it)
 			} catch (e: Exception) {
-				warren("${e.message}\n${e.stackTraceToString()}")
+				warren(e.stackTraceToString())
 			}
 		}
 		jda.listener<ButtonInteractionEvent> {
 			try {
 				buttonInteractionHandler.handle(it)
 			} catch (e: Exception) {
-				warren("${e.message}\n${e.stackTraceToString()}")
+				warren(e.stackTraceToString())
 			}
 		}
 		jda.listener<SelectMenuInteractionEvent> {
 			try {
 				specialMessageHandler.handleSelectMenu(it)
 			} catch (e: Exception) {
-				warren("${e.message}\n${e.stackTraceToString()}")
+				warren(e.stackTraceToString())
 			}
 		}
 		jda.listener<ModalInteractionEvent> {
 			try {
 				modalInteractionHandler.onModalInteraction(it)
 			} catch(e: Exception) {
-				warren("${e.message}\n${e.stackTraceToString()}")
+				warren(e.stackTraceToString())
 			}
 		}
 		jda.listener<CommandAutoCompleteInteractionEvent> {
 			try {
 				autoCompletionHandler.onCommandAutoCompleteInteraction(it)
 			} catch(e: Exception) {
-				warren("${e.message}\n${e.stackTraceToString()}")
+				warren(e.stackTraceToString())
 			}
 		}
 	}
@@ -138,9 +138,9 @@ fun User.dm(message: String) = openPrivateChannel().queue_ { it.fullMessage(mess
 
 fun Member.dmWithFallback(message: String) = user.openPrivateChannel().queue { it.message(message).queue_(failure = ErrorHandler().handle(ErrorResponse.CANNOT_SEND_TO_USER) {
 	val aGuild = auriel.guilds.getGuild(guild.id)
-	val fallbackChannelId = aGuild.data.get("guild:fallbackChannel")
-	if (fallbackChannelId != null) {
-		guild.getTextChannelById(fallbackChannelId as String)!!.message("*${user.asMention} I could not DM you, so I'm forced to message you here:*\n$message").queue_()
+	if (aGuild.data.has("guild:fallback-channel")) {
+		guild.getTextChannelById(aGuild.data.getAsString("guild:fallback-channel"))!!
+			.message("*${user.asMention} You have private messages disabled, so I'm forced to message you here:*\n$message").queue_()
 	} else {
 		aGuild.logDMFailure(this, message)
 	}
