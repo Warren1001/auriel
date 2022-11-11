@@ -29,6 +29,7 @@ class ConfigDataBuilder {
 	companion object {
 		
 		val GUILD_SET_DEFAULT: (Auriel, String, Any) -> Unit = { auriel, key, value ->
+			auriel.guilds.guildDataDefaults[key] = value
 			auriel.guilds.forEachGuild { it.data.setDefault(key, value) }
 		}
 		val GUILD_MODIFY_VALUE: (ConfigContext, String) -> Boolean = { context, key ->
@@ -39,6 +40,7 @@ class ConfigDataBuilder {
 		val GUILD_SAVE_CHANGES: (ConfigContext) -> Unit = { it.guild.a().saveData() }
 		
 		val CHANNEL_SET_DEFAULT: (Auriel, String, Any) -> Unit = { auriel, key, value ->
+			auriel.guilds.guildMessageChannelDataDefaults[key] = value
 			auriel.guilds.forEachGuild { guild ->
 				guild.forEachGuildMessageChannel {
 					it.data.setDefault(key, value)

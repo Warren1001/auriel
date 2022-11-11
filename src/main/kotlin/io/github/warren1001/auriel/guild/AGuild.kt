@@ -11,6 +11,7 @@ import io.github.warren1001.auriel.channel.text.AGuildMessageChannelData
 import io.github.warren1001.auriel.d2.clone.CloneHandler
 import io.github.warren1001.auriel.d2.tz.TerrorZone
 import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerGuildData
+import io.github.warren1001.auriel.user.Users
 import io.github.warren1001.auriel.util.filter.RepeatedSpamFilter
 import io.github.warren1001.auriel.util.filter.SpamFilter
 import io.github.warren1001.auriel.util.filter.WordFilter
@@ -41,6 +42,7 @@ class AGuild {
 	val tzGuildData: TerrorZoneTrackerGuildData
 	val cloneHandler: CloneHandler
 	val youtubeAnnouncer: YoutubeAnnouncer
+	val users: Users
 	
 	private val guildMessageChannels = mutableMapOf<String, AGuildMessageChannel>()
 	private var lastTZAnnouncement: Message? = null
@@ -48,11 +50,12 @@ class AGuild {
 	constructor(auriel: Auriel, id: String, guilds: Guilds) {
 		this.auriel = auriel
 		this.id = id
-		data = guilds.guildDataCollection.findOneById(id) ?: AGuildData(id)
+		data = guilds.guildDataCollection.findOneById(id) ?: AGuildData(id, guilds.guildDataDefaults.toMutableMap())
 		textChannelDataCollection = auriel.database.getCollection("$id-textChannels", AGuildMessageChannelData::class.java)
 		tzGuildData = guilds.tzTrackerRoleCollection.findOneById(id) ?: TerrorZoneTrackerGuildData(id)
 		cloneHandler = CloneHandler(auriel, this)
 		youtubeAnnouncer = YoutubeAnnouncer(auriel, this, data.youtubeData, auriel.youtube)
+		users = Users(auriel, this)
 		setup()
 	}
 	
@@ -64,6 +67,7 @@ class AGuild {
 		tzGuildData = guilds.tzTrackerRoleCollection.findOneById(id) ?: TerrorZoneTrackerGuildData(id)
 		cloneHandler = CloneHandler(auriel, this)
 		youtubeAnnouncer = YoutubeAnnouncer(auriel, this, data.youtubeData, auriel.youtube)
+		users = Users(auriel, this)
 		setup()
 	}
 	

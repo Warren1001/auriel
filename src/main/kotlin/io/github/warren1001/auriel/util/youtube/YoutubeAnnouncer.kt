@@ -34,7 +34,7 @@ class YoutubeAnnouncer(private val auriel: Auriel, private val guild: AGuild, pr
 					).queue_()
 				}
 		} catch (e: Exception) {
-			auriel.warren("Error checking for new uploads: ${e.message}\n${e.stackTrace.joinToString("\n")}")
+			auriel.warren("Error checking for new uploads: ${e.stackTraceToString()}")
 		}
 	}
 	
@@ -43,8 +43,10 @@ class YoutubeAnnouncer(private val auriel: Auriel, private val guild: AGuild, pr
 		guild.saveData()
 	}
 	
-	fun setChannelId(channelId: String) {
+	fun setChannelId(channelId: String): Boolean {
+		if (data.channelId == channelId) return false
 		data.channelId = channelId
+		return true
 	}
 	
 	fun setPlaylistId(playlistId: String): Boolean {

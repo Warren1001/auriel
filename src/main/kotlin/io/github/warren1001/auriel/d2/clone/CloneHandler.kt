@@ -2,11 +2,8 @@ package io.github.warren1001.auriel.d2.clone
 
 import dev.minn.jda.ktx.interactions.components.replyModal
 import dev.minn.jda.ktx.messages.reply_
-import io.github.warren1001.auriel.Auriel
-import io.github.warren1001.auriel.dmWithFallback
-import io.github.warren1001.auriel.fullMention
+import io.github.warren1001.auriel.*
 import io.github.warren1001.auriel.guild.AGuild
-import io.github.warren1001.auriel.queue_
 import io.github.warren1001.auriel.util.PinMessage
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
@@ -111,8 +108,14 @@ class CloneHandler(private val auriel: Auriel, private val guild: AGuild) {
 		val previous = helpers.remove(event.user.id)!!
 		helpees.remove(previous.requesterId)
 		val requester = event.guild!!.getMemberById(previous.requesterId)!!
-		requester.dmWithFallback("**${event.user.fullMention()}** has concluded helping you.")
-		event.reply_("You have finished helping **${requester.fullMention()}**.").queue_()
+		requester.dmWithFallback("**${event.user.fullMention()}** has concluded helping you. If you would like to show appreciation to your helper," +
+				" give them a vouch using the `/vouch` command in the server! (Not here)")
+		val helperUser = event.member!!.a()
+		val helperData = helperUser.data
+		val cloneKills = helperData.getOrDefault("cloneKills", 0) as Int + 1
+		helperData.set("cloneKills", cloneKills)
+		event.reply_("You have finished helping **${requester.fullMention()}**. You have completed a total of $cloneKills Clones.").queue_()
+		helperUser.saveData()
 	}
 	
 	fun cancelHelp(event: ButtonInteractionEvent) {

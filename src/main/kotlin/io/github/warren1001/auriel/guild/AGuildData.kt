@@ -4,13 +4,12 @@ import io.github.warren1001.auriel.util.filter.Filter
 import io.github.warren1001.auriel.util.filter.WordFilter
 import io.github.warren1001.auriel.util.youtube.YoutubeData
 
-data class AGuildData(val _id: String) {
+data class AGuildData(val _id: String, val configData: MutableMap<String, Any> = mutableMapOf()) {
 	
-	val configData = mutableMapOf<String, Any>()
 	val wordFilters = mutableSetOf<WordFilter>()
 	val spamFilters = mutableSetOf<Filter>()
 	var youtubeData: YoutubeData = YoutubeData()
-	
+	var nextVouchId = 0L
 	
 	fun set(key: String, value: Any): Boolean {
 		if (configData[key] == value) return false

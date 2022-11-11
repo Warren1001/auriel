@@ -10,15 +10,17 @@ import io.github.warren1001.auriel.a
 import io.github.warren1001.auriel.d2.tz.TerrorZone
 import io.github.warren1001.auriel.guild.ConfigError
 import io.github.warren1001.auriel.queue_
+import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Activity
 import net.dv8tion.jda.api.entities.Role
+import net.dv8tion.jda.api.entities.User
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
-import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions
-import net.dv8tion.jda.api.interactions.commands.build.Commands
 import net.dv8tion.jda.api.interactions.components.ActionRow
 import net.dv8tion.jda.api.interactions.components.buttons.Button
+import java.awt.Color
+import java.time.Instant
 
 class Commands(private val auriel: Auriel) {
 	
@@ -129,11 +131,6 @@ class Commands(private val auriel: Auriel) {
 				createMessage = { messageCreateData, callback -> it.reply_(messageCreateData.content).queue_ { callback.invoke(it) } }
 				finished = { data -> auriel.guilds.getGuild(it.guild!!.id).setupTZ(it.channel.id, msg, data) }
 			}
-			/*auriel.specialMessageHandler.replyChainMessageCallback(it.user, TerrorZone.values().toList(), "What role do you want to use for the Terror Zone **%s**?", "Done setting up roles!",
-				{ _, message -> message.mentions.roles.firstOrNull() }, TerrorZone::zoneName, { messageCreateData, callback -> it.reply_(messageCreateData.content).queue_ { callback.invoke(it) } }
-			) { data ->
-				auriel.guilds.getGuild(it.guild!!.id).setupTZ(it.channel.id, msg, data)
-			}*/
 		}
 		commandActions["tznotify"] = {
 			val guild = it.guild!!.a()
@@ -172,25 +169,23 @@ class Commands(private val auriel: Auriel) {
 			it.channel.sendMessage(createMessageData).queue_()
 			it.reply_("Done!").queue_()
 		}
-		commandActions["timer"] = {
+		commandActions["timer"] = fun(it: SlashCommandInteractionEvent) {
 			var success = false
 			if (it.subcommandName == "start") {
 				val name = it.getOption("name")!!.asString
 				if (name == "message-age") {
 					success = true
 					val channel = it.channel.asGuildMessageChannel().a()
-					if (channel.startMessageAgeTimer()) {
-						it.reply_("Started the message age timer.").queue_()
-					} else {
+					if (!channel.startMessageAgeTimer()) {
 						it.reply_("You must configure the message age timer first. Check `/config`.").queue_()
+						return
 					}
 				} else if (name == "youtube") {
 					success = true
 					val guild = it.guild!!.a()
-					if (guild.youtubeAnnouncer.start()) {
-						it.reply_("Started the YouTube timer.").queue_()
-					} else {
+					if (!guild.youtubeAnnouncer.start()) {
 						it.reply_("You must configure the YouTube timer first. Check `/config`.").queue_()
+						return
 					}
 				}
 			} else {
@@ -198,11 +193,9 @@ class Commands(private val auriel: Auriel) {
 				if (name == "message-age") {
 					success = true
 					it.channel.asGuildMessageChannel().a().stopMessageAgeTimer()
-					it.reply_("Stopped the message age timer if it was running.").queue_()
 				} else if (name == "youtube") {
 					success = true
 					it.guild!!.a().youtubeAnnouncer.stop()
-					it.reply_("Stopped the YouTube timer if it was running.").queue_()
 				}
 			}
 			if (success) {
@@ -271,14 +264,14 @@ class Commands(private val auriel: Auriel) {
 				subcommand("server", "List all word filters for the server.")
 				subcommand("channel", "List all word filters for this channel.")
 			}
-			slash("activity", "Set the bot's activity message. The streaming option needs the optional URL.") {
-				restrict(true, Permission.BAN_MEMBERS)
+			/*slash("activity", "Set the bot's activity message. The streaming option needs the optional URL.") {
+				restrict(true, Permission.ADMINISTRATOR)
 				option<String>("type", "playing|competing|listening|watching|streaming|clear", required = true, autocomplete = true)
 				option<String>("message", "The message to set the activity to. Useless if type is 'clear'.", required = true)
 				option<String>("url", "The URL of the stream.")
-			}
+			}*/
 			slash("tz", "Sets up Terror Zone notifications in this channel + roles.") {
-				restrict(true, Permission.ADMINISTRATOR)
+				restrict(true, Permission.MANAGE_SERVER)
 				option<String>("message", "TZ announce msg. %ROLE% and %ZONE% are the fill names", required = false)
 			}
 			slash("tzrolebutton", "Choose the areas you want to be notified for.") {
@@ -327,19 +320,73 @@ class Commands(private val auriel: Auriel) {
 				}
 				subcommand("stop", "Stop the DClone system.")
 			}
-			addCommands(
-				Commands.user("Make DClone Helper").setGuildOnly(true).setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.BAN_MEMBERS)),
-				Commands.user("Remove DClone Helper").setGuildOnly(true).setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.BAN_MEMBERS))
-			)
+			slash("vouch", "Give another user a vouch.") {
+				restrict(true)
+				option<User>("user", "The user you are wanting to vouch.", required = true)
+				option<String>("reason", "The reason you're vouching them.", required = true)
+			}
+			slash("vouches", "Look at a user's recent vouches.") {
+				restrict(true)
+				option<User>("user", "The user whose vouches you want to see.", required = true)
+				option<Boolean>("hide", "Hide the response of this command (so people won't see you're checking their vouches).", required = false)
+			}
+			slash("removevouch", "Remove a user's vouch.") {
+				restrict(true, Permission.BAN_MEMBERS)
+				option<User>("user", "The user whose vouch you want to remove.", required = true)
+				option<Long>("id", "The id of the vouch you're removing.", required = true)
+			}
 		}.queue_()
+		commandActions["removevouch"] = {
+			val user = it.getOption("user")!!.asMember!!
+			val aUser = user.a()
+			val id = it.getOption("id")!!.asLong
+			if (user.a().data.vouches.removeIf { it.id == id }) {
+				aUser.saveData()
+				it.reply_("Removed the vouch.").queue_()
+			} else {
+				it.reply_("${user.user.asTag} does not have a vouch with that ID.").queue_()
+			}
+		}
+		commandActions["vouch"] = {
+			val user = it.getOption("user")!!.asMember!!
+			if (user.id == it.user.id) {
+				it.reply_("You cannot vouch yourself, silly!").queue_()
+			} else {
+				val reason = it.getOption("reason")!!.asString
+				if (user.a().giveVouch(it.member!!, reason)) {
+					it.reply("${it.user.asMention} has given ${user.asMention} a vouch for: **$reason**.").queue_()
+				} else {
+					it.reply_("You must wait ${it.guild!!.a().data.getAsNumber("guild:vouch-cooldown").toLong()} seconds between vouches.").queue_()
+				}
+			}
+		}
+		commandActions["vouches"] = {
+			val user = it.getOption("user")!!.asMember!!
+			val hide = it.getOption("hide")?.asBoolean ?: false
+			val totalVouches = user.a().data.vouches
+			val vouches = totalVouches.takeLast(5).reversed()
+			if (vouches.isEmpty()) {
+				it.reply_("That user has no vouches.").queue_()
+			} else {
+				val embed = EmbedBuilder()
+					.setTitle("${totalVouches.size} vouches for ${user.user.asTag}")
+					.setDescription("Showing the last 5 vouches:")
+					.setColor(Color.GREEN)
+					.setTimestamp(Instant.now())
+				for (vouch in vouches) {
+					embed.addField(vouch.vouchedBy.let { user.guild.getMemberById(it)!! }.user.asTag, "(${vouch.id}) - ${vouch.reason}", false)
+				}
+				if (hide) {
+					it.reply_(embeds = listOf(embed.build())).queue_()
+				} else {
+					it.reply(MessageCreate(embeds = listOf(embed.build()))).queue_()
+				}
+			}
+		}
 		commandActions["config"] = fun(it: SlashCommandInteractionEvent) {
 			val origKey = it.getOption("key")!!.asString
 			var success = ConfigError.NONE
 			if (origKey.contains(":")) {
-				val guild = it.guild!!.a()
-				val args = origKey.split(":")
-				val id = args[0].lowercase()
-				val key = args[1].lowercase()
 				when (it.subcommandName) {
 					"string" -> {
 						val value = it.getOption("value")!!.asString

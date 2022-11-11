@@ -18,7 +18,7 @@ class Config(private val auriel: Auriel) {
 		require(configDataBuilder.allowedTypes().isNotEmpty()) { "allowedTypes cannot be empty" }
 		requireNotNull(configDataBuilder.valueChanged) { "valueChanged cannot be null" }
 		
-		if (configDataBuilder.defaultValue != null) auriel.guilds.forEachGuild { it.data.setDefault(configDataBuilder.key, configDataBuilder.defaultValue!!) }
+		if (configDataBuilder.defaultValue != null) configDataBuilder.setDefault.invoke(auriel, configDataBuilder.key, configDataBuilder.defaultValue!!)
 		
 		val configData = ConfigData(configDataBuilder.key, configDataBuilder.description, configDataBuilder.permission,
 			configDataBuilder.allowedTypes(), configDataBuilder.setDefault, configDataBuilder.saveChanges,
@@ -46,10 +46,19 @@ class Config(private val auriel: Auriel) {
 		require(configDataBuilder.allowedTypes().isNotEmpty()) { "allowedTypes cannot be empty" }
 		requireNotNull(configDataBuilder.valueChanged) { "valueChanged cannot be null" }
 		
+		if (configDataBuilder.defaultValue != null) configDataBuilder.setDefault.invoke(auriel, configDataBuilder.key, configDataBuilder.defaultValue!!)
+		
 		val configData = ConfigData(configDataBuilder.key, configDataBuilder.description, configDataBuilder.permission,
 			configDataBuilder.allowedTypes(), configDataBuilder.setDefault, configDataBuilder.saveChanges,
 			configDataBuilder.modifyValue, configDataBuilder.valueChanged)
 		this.configData[configData.key] = configData
+		if (configData.description.isNotBlank()) {
+			configData.allowedTypes.forEach {
+				it.configSubCommands.forEach {
+					auriel.autoCompletionHandler.addAutocompleteStrings("config", it, option = "key", configData.key)
+				}
+			}
+		}
 		return configData
 	}
 	
@@ -98,6 +107,15 @@ class Config(private val auriel: Auriel) {
 			allowedTypes(ConfigDataType.STRING)
 			modifyValue = { context, _ ->
 				context.guild.a().youtubeAnnouncer.setMessage(context.getAsString())
+			}
+		}
+		createGuildConfigData {
+			key = "youtube:channel-id"
+			permission = Permission.MANAGE_SERVER
+			description = "The ID of the channel to post new YouTube video upload notifications in."
+			allowedTypes(ConfigDataType.CHANNEL)
+			modifyValue = { context, _ ->
+				context.guild.a().youtubeAnnouncer.setChannelId(context.getAsChannel().id)
 			}
 		}
 		createGuildConfigData {
@@ -182,7 +200,7 @@ class Config(private val auriel: Auriel) {
 			description = "" // hide this option
 			allowedTypes(ConfigDataType.CHANNEL)
 			modifyValue = { context, _ ->
-				auriel.guilds.tzTracker.setChannel(context.getAsString(), false)
+				auriel.guilds.tzTracker.setChannel(context.getAsChannel().id, false)
 			}
 			saveChanges = { auriel.guilds.tzTracker.saveData() }
 		}
@@ -236,6 +254,13 @@ class Config(private val auriel: Auriel) {
 			description = "Auto-publish messages posted in every announcement channel."
 			defaultValue = false
 			allowedTypes(ConfigDataType.BOOLEAN)
+		}
+		createGuildConfigData {
+			key = "guild:vouch-cooldown"
+			permission = Permission.MANAGE_SERVER
+			description = "The cooldown in seconds that someone can give a vouch to another user."
+			defaultValue = 3600L
+			allowedTypes(ConfigDataType.NUMBER)
 		}
 	}
 

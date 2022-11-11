@@ -150,6 +150,10 @@ fun Guild.a() = auriel.guilds.getGuild(id)
 
 fun GuildMessageChannel.a() = guild.a().getGuildMessageChannel(this)
 
+fun Member.a() = guild.a().users.getUser(id)
+
+fun User.a(guildId: String) = auriel.guilds.getGuild(guildId).users.getUser(id)
+
 fun Member.fullMention() = "$asMention (${user.name}#${user.discriminator})"
 
 fun User.fullMention() = "$asMention ($name#$discriminator)"
@@ -194,7 +198,7 @@ fun MessageChannel.fullMessage(message: String, components: Collection<LayoutCom
 fun AuditableRestAction<Void>.queueDelete() = queue_(failure = ErrorHandler().ignore(ErrorResponse.UNKNOWN_MESSAGE))
 
 fun <T> RestAction<T>.queue_(failure: ErrorHandler = ErrorHandler(), success: ((T) -> Unit)? = null): Unit = queue(success,
-	failure.handle({ true }) { auriel.warren(it.stackTraceToString()) })
+		failure.handle({ true }) { auriel.warren(it.stackTraceToString()) })
 
 fun String.quote(truncateLength: Int = 2000): String {
 	return if (length > truncateLength - 10) "```\n${replace("```", "`\\``").truncate(truncateLength - 10 - countMatches("```"))}...```" else "```\n$this```"

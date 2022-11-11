@@ -29,7 +29,7 @@ class AGuildMessageChannel {
 		this.auriel = auriel
 		this.guild = guild
 		this.id = id
-		data = AGuildMessageChannelData(id)
+		data = AGuildMessageChannelData(id, auriel.guilds.guildMessageChannelDataDefaults.toMutableMap())
 		setup()
 	}
 	
@@ -107,7 +107,7 @@ class AGuildMessageChannel {
 					MessageHistory.getHistoryBefore(auriel.jda.getTextChannelById(id)!!, TimeUtil.getDiscordTimestamp(System.currentTimeMillis() - maxMessageAge).toString())
 						.queue_ { it.channel.asGuildMessageChannel().purgeMessages(it.retrievedHistory.filter { it.member != null && !it.member!!.hasPermission(Permission.BAN_MEMBERS) }) }
 				} catch (e: Exception) {
-					auriel.warren("${e.message}\n${e.stackTraceToString()}")
+					auriel.warren(e.stackTraceToString())
 				}
 			}
 			return true

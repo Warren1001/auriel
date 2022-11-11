@@ -11,5 +11,6 @@ data class ConfigContext(val auriel: Auriel, val guild: Guild, val channel: Guil
 	fun getAsString() = value as String
 	fun getAsNumber() = value as Number
 	fun getAsBoolean() = value as Boolean
+	fun getAsChannel() = value as GuildMessageChannel
 	
 }

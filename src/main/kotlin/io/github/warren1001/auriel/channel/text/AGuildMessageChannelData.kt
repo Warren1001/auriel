@@ -2,9 +2,8 @@ package io.github.warren1001.auriel.channel.text
 
 import io.github.warren1001.auriel.util.filter.WordFilter
 
-data class AGuildMessageChannelData(val _id: String) {
+data class AGuildMessageChannelData(val _id: String, val configData: MutableMap<String, Any> = mutableMapOf()) {
 	
-	val configData = mutableMapOf<String, Any>()
 	val wordFilters = mutableSetOf<WordFilter>()
 	
 	fun set(key: String, value: Any): Boolean {
