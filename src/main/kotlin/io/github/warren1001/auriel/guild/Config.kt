@@ -9,6 +9,12 @@ import net.dv8tion.jda.api.entities.Member
 class Config(private val auriel: Auriel) {
 
 	private val configData = mutableMapOf<String, ConfigData>()
+	
+	fun prettyPrintConfigData(key: String, requester: Member): String {
+		val configData = configData[key] ?: return "That is not a valid key to configure."
+		if (configData.permission == Permission.ADMINISTRATOR && !requester.isWarren()) return "That is not a valid key to configure."
+		return configData.prettyPrint()
+	}
 
 	fun createGuildConfigData(builder: ConfigDataBuilder.() -> Unit): ConfigData {
 		val configDataBuilder = ConfigDataBuilder()
@@ -21,7 +27,7 @@ class Config(private val auriel: Auriel) {
 		if (configDataBuilder.defaultValue != null) configDataBuilder.setDefault.invoke(auriel, configDataBuilder.key, configDataBuilder.defaultValue!!)
 		
 		val configData = ConfigData(configDataBuilder.key, configDataBuilder.description, configDataBuilder.permission,
-			configDataBuilder.allowedTypes(), configDataBuilder.setDefault, configDataBuilder.saveChanges,
+			configDataBuilder.allowedTypes(), configDataBuilder.defaultValue ?: "None", configDataBuilder.setDefault, configDataBuilder.saveChanges,
 			configDataBuilder.modifyValue, configDataBuilder.valueChanged)
 		this.configData[configData.key] = configData
 		if (configData.description.isNotBlank()) {
@@ -49,7 +55,7 @@ class Config(private val auriel: Auriel) {
 		if (configDataBuilder.defaultValue != null) configDataBuilder.setDefault.invoke(auriel, configDataBuilder.key, configDataBuilder.defaultValue!!)
 		
 		val configData = ConfigData(configDataBuilder.key, configDataBuilder.description, configDataBuilder.permission,
-			configDataBuilder.allowedTypes(), configDataBuilder.setDefault, configDataBuilder.saveChanges,
+			configDataBuilder.allowedTypes(), configDataBuilder.defaultValue ?: "None", configDataBuilder.setDefault, configDataBuilder.saveChanges,
 			configDataBuilder.modifyValue, configDataBuilder.valueChanged)
 		this.configData[configData.key] = configData
 		if (configData.description.isNotBlank()) {

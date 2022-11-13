@@ -4,12 +4,14 @@ import dev.minn.jda.ktx.events.listener
 import dev.minn.jda.ktx.interactions.commands.*
 import dev.minn.jda.ktx.interactions.components.SelectOption
 import dev.minn.jda.ktx.messages.MessageCreate
+import dev.minn.jda.ktx.messages.MessageEdit
 import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.Auriel
 import io.github.warren1001.auriel.a
 import io.github.warren1001.auriel.d2.tz.TerrorZone
 import io.github.warren1001.auriel.guild.ConfigError
 import io.github.warren1001.auriel.queue_
+import io.github.warren1001.auriel.replyFull
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Activity
@@ -21,6 +23,7 @@ import net.dv8tion.jda.api.interactions.components.ActionRow
 import net.dv8tion.jda.api.interactions.components.buttons.Button
 import java.awt.Color
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 
 class Commands(private val auriel: Auriel) {
 	
@@ -46,8 +49,11 @@ class Commands(private val auriel: Auriel) {
 				val replacement = it.getOption("replacement")!!.asString
 				val literal = it.getOption("literal")?.asBoolean ?: false
 				val caseSensitive = it.getOption("case-sensitive")?.asBoolean ?: false
-				guild.addWordFilter(name, expression, replacement, literal, caseSensitive)
-				it.reply_("Added word filter `$name`.").queue_()
+				if (guild.addWordFilter(name, expression, replacement, literal, caseSensitive)) {
+					it.reply_("The server filter **$name** added.").queue_()
+				} else {
+					it.reply_("The server filter name **$name** is already taken.").queue_()
+				}
 			} else {
 				val channel = it.channel.asGuildMessageChannel().a()
 				val name = it.getOption("name")!!.asString
@@ -80,7 +86,7 @@ class Commands(private val auriel: Auriel) {
 				val guild = it.guild!!.a()
 				val filters = guild.data.wordFilters
 				if (filters.isNotEmpty()) {
-					it.reply_("Filters for this server:\n${filters.joinToString("\n") { "${it.source}: `${it.regex.pattern}`" }}").queue_()
+					it.reply_("Filters for this server:\n${filters.joinToString("\n") { "${it.name}: `${it.regex.pattern}`" }}").queue_()
 				} else {
 					it.reply_("No filters exist for this server.").queue_()
 				}
@@ -88,7 +94,7 @@ class Commands(private val auriel: Auriel) {
 				val channel = it.channel.asGuildMessageChannel().a()
 				val filters = channel.data.wordFilters
 				if (filters.isNotEmpty()) {
-					it.reply_("Filters for this server:\n${filters.joinToString("\n") { "${it.source}: `${it.regex.pattern}`" }}").queue_()
+					it.reply_("Filters for this server:\n${filters.joinToString("\n") { "${it.name}: `${it.regex.pattern}`" }}").queue_()
 				} else {
 					it.reply_("No filters exist for this channel.").queue_()
 				}
@@ -126,6 +132,7 @@ class Commands(private val auriel: Auriel) {
 				values = TerrorZone.values().toList()
 				format = "What role do you want to use for the Terror Zone **%s**?"
 				finishMsg = "Done setting up roles!"
+				validationMessage = "**You must provide a valid role in the form of a role mention as if you were tagging the role. Try again.**"
 				parse = { _, message -> message.mentions.roles.firstOrNull() }
 				display = TerrorZone::zoneName
 				createMessage = { messageCreateData, callback -> it.reply_(messageCreateData.content).queue_ { callback.invoke(it) } }
@@ -335,7 +342,73 @@ class Commands(private val auriel: Auriel) {
 				option<User>("user", "The user whose vouch you want to remove.", required = true)
 				option<Long>("id", "The id of the vouch you're removing.", required = true)
 			}
+			slash("blacklistvouch", "Prevent a user from using the /vouch command.") {
+				restrict(true, Permission.MANAGE_SERVER)
+				option<User>("user", "The user you want to blacklist from using the /vouch command.", required = true)
+			}
+			slash("spam", "Add or remove a spam bot filter.") {
+				restrict(true, Permission.BAN_MEMBERS)
+				subcommand("add", "Add a spam bot filter.") {
+					option<String>("name", "The name of the filter.", required = true)
+					option<String>("regex", "The regex to use for the filter. Leaving empty will use chat box for multi-line (AND) support.", required = false)
+					option<Int>("repeat", "Amount of times to type the filter before being muted. Defaults to 1.", required = false)
+					option<Int>("window", "The length of the window in seconds for when the filter cannot be repeated. Defaults to 5 seconds.", required = false)
+				}
+				subcommand("remove", "Remove a spam bot filter.") {
+					option<String>("name", "The name of the filter to remove.", required = true)
+				}
+				subcommand("list", "List all spam bot filters.")
+			}
 		}.queue_()
+		commandActions["blacklistvouch"] = {
+			val id = it.getOption("user")!!.asUser.id
+			val guild = it.guild!!.a()
+			val blacklist = guild.data.vouchBlacklist
+			if (blacklist.contains(id)) {
+				it.reply_("That user is already blacklisted.").queue_()
+			} else {
+				blacklist.add(id)
+				guild.saveData()
+				it.reply_("User is now blacklisted.").queue_()
+			}
+		}
+		commandActions["spam"] = {
+			val subcommand = it.subcommandName
+			if (subcommand == "add") {
+				val name = it.getOption("name")!!.asString
+				val regex = it.getOption("regex")?.asString
+				val repeat = it.getOption("repeat")?.asInt ?: 1
+				val window = it.getOption("window")?.asInt ?: 5
+				if (regex == null) {
+					auriel.specialMessageHandler.replySingleMessage(it, "Respond with the regexes you'd like to use for this filter. Separate them with new lines." +
+							" All must match for this filter to be triggered.") { value ->
+						val editContent = if (it.guild!!.a().addSpamFilter(name, value.split("\n"), repeat, window)) {
+							"The spam filter **$name** has been added."
+						} else {
+							"The spam filter name **$name** is already taken."
+						}
+						MessageEdit(editContent)
+					}
+				} else {
+					it.guild!!.a().addSpamFilter(name, regex, repeat, window)
+					it.reply_("The spam filter **$name** has been added.").queue_()
+				}
+			} else if (subcommand == "remove") {
+				val name = it.getOption("name")!!.asString
+				if (it.guild!!.a().removeSpamFilter(name)) {
+					it.reply_("The spam filter **$name** has been removed.").queue_()
+				} else {
+					it.reply_("The spam filter **$name** does not exist.").queue_()
+				}
+			} else if (subcommand == "list") {
+				val filters = it.guild!!.a().data.spamFilters
+				if (filters.isEmpty()) {
+					it.reply_("There are no spam filters.").queue_()
+				} else {
+					it.replyFull(filters.joinToString("\n\n") { it.prettyPrint() }).queue_()
+				}
+			}
+		}
 		commandActions["removevouch"] = {
 			val user = it.getOption("user")!!.asMember!!
 			val aUser = user.a()
@@ -348,15 +421,19 @@ class Commands(private val auriel: Auriel) {
 			}
 		}
 		commandActions["vouch"] = {
-			val user = it.getOption("user")!!.asMember!!
-			if (user.id == it.user.id) {
-				it.reply_("You cannot vouch yourself, silly!").queue_()
+			if (it.guild!!.a().data.vouchBlacklist.contains(it.user.id)) {
+				it.deferReply().delay(14, TimeUnit.MINUTES).flatMap { it.editOriginal("?") }.queue_()
 			} else {
-				val reason = it.getOption("reason")!!.asString
-				if (user.a().giveVouch(it.member!!, reason)) {
-					it.reply("${it.user.asMention} has given ${user.asMention} a vouch for: **$reason**.").queue_()
+				val user = it.getOption("user")!!.asMember!!
+				if (user.id == it.user.id) {
+					it.reply_("You cannot vouch yourself, silly!").queue_()
 				} else {
-					it.reply_("You must wait ${it.guild!!.a().data.getAsNumber("guild:vouch-cooldown").toLong()} seconds between vouches.").queue_()
+					val reason = it.getOption("reason")!!.asString
+					if (user.a().giveVouch(it.member!!, reason)) {
+						it.reply("${it.user.asMention} has given ${user.asMention} a vouch for: **$reason**.").queue_()
+					} else {
+						it.reply_("You must wait ${it.guild!!.a().data.getAsNumber("guild:vouch-cooldown").toLong()} seconds between vouches.").queue_()
+					}
 				}
 			}
 		}
@@ -400,14 +477,18 @@ class Commands(private val auriel: Auriel) {
 					"longstring" -> {
 						success = if (auriel.config.hasKey(origKey)) ConfigError.NONE else ConfigError.NOT_FOUND
 						if (success == ConfigError.NONE) {
-							auriel.specialMessageHandler.replySingleMessage(it, "Respond with the value you'd like to set $origKey to.", "Configuration option set.") { value ->
-								/*success = */auriel.config.modifyConfigValue(it.member!!, origKey) {
+							auriel.specialMessageHandler.replySingleMessage(it, "Respond with the value you'd like to set $origKey to.") { value ->
+								val success2 = auriel.config.modifyConfigValue(it.member!!, origKey) {
 									this.guild = it.guild!!
 									this.channel = it.channel.asGuildMessageChannel()
 									this.author = it.user
 									this.value = value
 								}
-								// TODO show wrong data type error message when applicable
+								if (success2 == ConfigError.NONE) {
+									MessageEdit("Configuration option set.")
+								} else {
+									MessageEdit("You do not have permission to modify this configuration option.")
+								}
 							}
 						} else {
 							it.reply("That is not a valid key to configure.").queue_()
@@ -442,7 +523,8 @@ class Commands(private val auriel: Auriel) {
 						}
 					}
 					"show" -> {
-						// TODO
+						it.replyFull(auriel.config.prettyPrintConfigData(origKey, it.member!!)).queue_()
+						return
 					}
 				}
 			}

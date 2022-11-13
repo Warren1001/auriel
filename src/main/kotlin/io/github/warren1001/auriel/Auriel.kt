@@ -9,6 +9,7 @@ import dev.minn.jda.ktx.events.listener
 import dev.minn.jda.ktx.jdabuilder.light
 import dev.minn.jda.ktx.messages.MessageCreate
 import dev.minn.jda.ktx.messages.SendDefaults
+import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.command.Commands
 import io.github.warren1001.auriel.eventhandler.ButtonInteractionHandler
 import io.github.warren1001.auriel.eventhandler.CommandAutoCompleteInteractionHandler
@@ -24,6 +25,7 @@ import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.SelectMenuInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
@@ -37,6 +39,7 @@ import net.dv8tion.jda.api.requests.restaction.AuditableRestAction
 import net.dv8tion.jda.api.utils.ChunkingFilter
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import net.dv8tion.jda.api.utils.cache.CacheFlag
+import org.apache.commons.lang3.StringUtils
 import org.litote.kmongo.KMongo
 import org.litote.kmongo.util.UpdateConfiguration
 import java.util.concurrent.TimeUnit
@@ -168,9 +171,23 @@ fun MessageChannel.message(message: String) = sendMessage(message.truncate(2000)
 
 fun MessageChannel.message(message: String, components: Collection<LayoutComponent>) = sendMessage(MessageCreate(message.truncate(2000), components = components))
 
+fun SlashCommandInteractionEvent.replyFull(message: String): RestAction<out Any> {
+	return if (message.length > 2000) {
+		val parts = message.lineChunked(2000)
+		var previousRestAction: RestAction<out Any> = reply(parts.removeAt(0))
+		val chan = channel.asGuildMessageChannel()
+		for ((i, part) in parts.withIndex()) {
+			previousRestAction = previousRestAction.and(chan.sendMessage(part).delay(50L * i, TimeUnit.MILLISECONDS))
+		}
+		previousRestAction
+	} else {
+		reply_(message)
+	}
+}
+
 fun MessageChannel.fullMessage(message: String): RestAction<out Any> {
 	return if (message.length > 2000) {
-		val parts = message.chunked(2000)
+		val parts = message.lineChunked(2000)
 		var previousRestAction: RestAction<out Any>? = null
 		for ((i, part) in parts.withIndex()) {
 			previousRestAction = previousRestAction?.and(sendMessage(part).delay(50L * i, TimeUnit.MILLISECONDS)) ?: sendMessage(part).delay(50L * i, TimeUnit.MILLISECONDS)
@@ -178,6 +195,26 @@ fun MessageChannel.fullMessage(message: String): RestAction<out Any> {
 		previousRestAction!!
 	} else {
 		sendMessage(message)
+	}
+}
+
+fun String.lineChunked(length: Int = 2000): MutableList<String> {
+	val chunks = mutableListOf("")
+	for (line in split('\n')) {
+		if (line.length > length) lineChunked(line, length, chunks)
+		else {
+			val currIsEmpty = chunks.last().isEmpty()
+			if (chunks.last().length + line.length > length) chunks += line
+			else chunks[chunks.size - 1] += if (currIsEmpty) line else "\n$line"
+		}
+	}
+	return chunks
+}
+
+private fun lineChunked(string: String, length: Int, chunks: MutableList<String>) {
+	for (line in string.split(' ')) {
+		if (chunks.last().length + line.length > length) chunks += line
+		else chunks[chunks.size - 1] += " $line"
 	}
 }
 
@@ -218,4 +255,35 @@ fun String.countMatches(substring: String): Int {
 			return count
 		}
 	}
+}
+
+val cyrDict = mapOf(
+	Pair("A", "А"),
+	Pair("a", "а"),
+	Pair("B", "В"),
+	Pair("E", "Е"),
+	Pair("e", "е"),
+	Pair("K", "К"),
+	Pair("M", "М"),
+	Pair("H", "Н"),
+	Pair("O", "О"),
+	Pair("o", "о"),
+	Pair("P", "Р"),
+	Pair("p", "р"),
+	Pair("C", "С"),
+	Pair("c", "с"),
+	Pair("T", "Т"),
+	Pair("y", "y"),
+	Pair("X", "Х"),
+	Pair("x", "х"),
+	Pair("U", "U"),
+	Pair("u", "u")
+)
+
+fun String.replaceOtherAlphabets(): String {
+	var result = StringUtils.stripAccents(this)
+	for ((key, value) in cyrDict) {
+		result = result.replace(value, key)
+	}
+	return result
 }

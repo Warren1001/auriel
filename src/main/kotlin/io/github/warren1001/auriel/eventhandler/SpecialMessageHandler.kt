@@ -12,6 +12,7 @@ import net.dv8tion.jda.api.interactions.InteractionHook
 import net.dv8tion.jda.api.interactions.components.LayoutComponent
 import net.dv8tion.jda.api.interactions.components.selections.SelectOption
 import net.dv8tion.jda.api.utils.messages.MessageCreateData
+import net.dv8tion.jda.api.utils.messages.MessageEditData
 
 class SpecialMessageHandler(private val auriel: Auriel) {
 	
@@ -62,9 +63,9 @@ class SpecialMessageHandler(private val auriel: Auriel) {
 		return message.createInitialReply()
 	}
 	
-	fun <T, U> replyChainMessageCallback(user: User, values: List<T>, format: String, finishMsg: String, parse: (T, Message) -> U, display: (T) -> String,
+	fun <T, U> replyChainMessageCallback(user: User, values: List<T>, format: String, finishMsg: String, parse: (T, Message) -> U, validationMessage: String, display: (T) -> String,
 			                             createMessage: (MessageCreateData, (InteractionHook) -> Unit) -> Unit, finished: (MutableMap<T, U>) -> Unit) {
-		val message = ChainMessage(mutableMapOf(), values, format, finishMsg, parse, display, finished)
+		val message = ChainMessage(mutableMapOf(), values, format, finishMsg, parse, validationMessage, display, finished)
 		chainMessages[user.id] = message
 		message.createInitialReplyCallback(createMessage)
 	}
@@ -87,8 +88,8 @@ class SpecialMessageHandler(private val auriel: Auriel) {
 		message.delete()
 	}
 	
-	fun replySingleMessage(event: SlashCommandInteractionEvent, prompt: String, complete: String, finished: (String) -> Unit) {
-		val message = SingleMessage(prompt, complete, finished)
+	fun replySingleMessage(event: SlashCommandInteractionEvent, prompt: String, finished: (String) -> MessageEditData) {
+		val message = SingleMessage(prompt, finished)
 		singleMessages[event.user.id] = message
 		message.prompt(event)
 	}

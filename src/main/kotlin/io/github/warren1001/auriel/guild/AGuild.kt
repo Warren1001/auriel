@@ -12,7 +12,6 @@ import io.github.warren1001.auriel.d2.clone.CloneHandler
 import io.github.warren1001.auriel.d2.tz.TerrorZone
 import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerGuildData
 import io.github.warren1001.auriel.user.Users
-import io.github.warren1001.auriel.util.filter.RepeatedSpamFilter
 import io.github.warren1001.auriel.util.filter.SpamFilter
 import io.github.warren1001.auriel.util.filter.WordFilter
 import io.github.warren1001.auriel.util.youtube.YoutubeAnnouncer
@@ -30,6 +29,7 @@ import net.dv8tion.jda.api.interactions.components.buttons.Button
 import org.litote.kmongo.findOneById
 import org.litote.kmongo.updateOne
 import java.awt.Color
+import java.time.Duration
 import java.time.Instant
 
 class AGuild {
@@ -107,7 +107,7 @@ class AGuild {
 			// swear filters
 			val swearFilters = data.wordFilters.filter { it.containsMatchIn(message) }
 			if (swearFilters.isNotEmpty()) {
-				val swearWords = swearFilters.joinToString(", ") { it.source }
+				val swearWords = swearFilters.joinToString(", ") { it.name }
 				event.message.delete().queue_()
 				var repostId: Long? = null
 				if (swearFilters.all { it.shouldReplace() } && aChannel.allowsReposting()) {
@@ -123,24 +123,19 @@ class AGuild {
 			}
 			
 			// spam filters
-			val spamFilters = data.spamFilters.filterIsInstance<SpamFilter>().filter { it.containsMatchIn(message) }
-			val repeatedSpamFilters = data.spamFilters.filterIsInstance<RepeatedSpamFilter>().filter { it.containsMatchIn(message) }
-			if (spamFilters.isNotEmpty()) {
-				muteSpammer(author, event.message, spamFilters.first().name)
-				return true
-			}
-			if (repeatedSpamFilters.isNotEmpty()) {
-				val filter = repeatedSpamFilters.firstOrNull { it.logSpam(author, event.message) }
+			val triggeredSpamFilters = data.spamFilters.filter { it.containsMatchIn(message) }
+			data.spamFilters.filter { !it.containsMatchIn(message) }.forEach { it.checkDecrease(author) }
+			if (triggeredSpamFilters.isNotEmpty()) {
+				val filter = triggeredSpamFilters.firstOrNull { it.logSpam(author, event.message) }
 				if (filter != null) {
 					muteSpammer(author, event.message, filter.name)
 					return true
 				}
 			}
-			data.spamFilters.filterIsInstance<RepeatedSpamFilter>().forEach { it.checkDecrease(author) }
 			
 		}
 		
-		if (event.channelType == ChannelType.NEWS && data.get("guild:crosspost") as Boolean) event.message.crosspost().queue_()
+		if (event.channelType == ChannelType.NEWS && data.getAsBoolean("guild:crosspost")) event.message.crosspost().queue_()
 		
 		return aChannel.handleMessageReceived(event)
 		
@@ -154,10 +149,10 @@ class AGuild {
 	}
 	
 	private fun muteSpammer(member: Member, message: Message, filterName: String) {
-		message.delete().queue_()
-		member.mute(true).queue_()
+		//message.delete().queue_()
+		member.timeoutFor(Duration.ofDays(28).minusSeconds(1)).queue_()
 		logMessageDelete(member, message.channel.asGuildMessageChannel(), "Suspected bot ($filterName), muted", message.contentRaw)
-		data.spamFilters.filterIsInstance<RepeatedSpamFilter>().forEach { it.clearMember(member) }
+		data.spamFilters.forEach { it.clearMember(member) }
 	}
 	
 	fun logMessageDelete(author: Member, channel: GuildMessageChannel, reason: String, originalMessage: String, repostId: Long? = null) {
@@ -170,7 +165,7 @@ class AGuild {
 		})
 	}
 	
-	private fun log(embed: MessageEmbed) = data.get("guild:logChannel")?.let { auriel.jda.getTextChannelById(it as String)?.sendMessageEmbeds(embed)?.queue_() }
+	private fun log(embed: MessageEmbed) = data.get("guild:logging-channel")?.let { auriel.jda.getTextChannelById(it as String)?.sendMessageEmbeds(embed)?.queue_() }
 	
 	fun logDMFailure(member: Member, message: String) {
 		log(Embed(title = "DM Failure", color = Color.BLACK.rgb, timestamp = Instant.now()) {
@@ -190,17 +185,35 @@ class AGuild {
 		}.build()).queue_()
 	}
 	
-	fun addWordFilter(name: String, pattern: String, replace: String? = null, literal: Boolean = false, caseSensitive: Boolean = false) {
+	fun addSpamFilter(name: String, pattern: String, repeat: Int = 1, window: Int = 5) = addSpamFilter(name, listOf(pattern), repeat, window)
+	
+	fun addSpamFilter(name: String, patterns: Collection<String>, repeat: Int = 1, window: Int = 5): Boolean {
+		if (data.spamFilters.any { it.name == name }) return false
+		val regexes = patterns.map { Regex(it.replaceOtherAlphabets(), RegexOption.IGNORE_CASE) }.toMutableSet()
+		data.spamFilters += if (repeat == 1) SpamFilter(name, regexes) else SpamFilter(name, regexes, repeat, window * 1000L)
+		saveData()
+		return true
+	}
+	
+	fun removeSpamFilter(name: String): Boolean {
+		val removed = data.spamFilters.removeIf { it.name == name }
+		if (removed) saveData()
+		return removed
+	}
+	
+	fun addWordFilter(name: String, pattern: String, replace: String? = null, literal: Boolean = false, caseSensitive: Boolean = false): Boolean {
+		if (data.wordFilters.any { it.name == name }) return false
 		val options = mutableSetOf<RegexOption>()
 		if (literal) options += RegexOption.LITERAL
 		if (!caseSensitive) options += RegexOption.IGNORE_CASE
-		val wordFilter = WordFilter(name, Regex(pattern, options), replace.orEmpty())
-		data.wordFilters.add(wordFilter)
+		val wordFilter = WordFilter(name, Regex(pattern.replaceOtherAlphabets(), options), replace.orEmpty())
+		data.wordFilters += wordFilter
 		saveData()
+		return true
 	}
 	
 	fun removeWordFilter(name: String): Boolean {
-		val removed = data.wordFilters.removeIf { it.source == name }
+		val removed = data.wordFilters.removeIf { it.name == name }
 		if (removed) saveData()
 		return removed
 	}

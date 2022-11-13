@@ -1,13 +1,14 @@
 package io.github.warren1001.auriel.guild
 
-import io.github.warren1001.auriel.util.filter.Filter
+import io.github.warren1001.auriel.util.filter.SpamFilter
 import io.github.warren1001.auriel.util.filter.WordFilter
 import io.github.warren1001.auriel.util.youtube.YoutubeData
 
 data class AGuildData(val _id: String, val configData: MutableMap<String, Any> = mutableMapOf()) {
 	
 	val wordFilters = mutableSetOf<WordFilter>()
-	val spamFilters = mutableSetOf<Filter>()
+	val spamFilters = mutableSetOf<SpamFilter>()
+	val vouchBlacklist = mutableSetOf<String>()
 	var youtubeData: YoutubeData = YoutubeData()
 	var nextVouchId = 0L
 	

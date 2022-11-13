@@ -10,14 +10,20 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateData
 
 class ChainMessage<T, U>(private val data: MutableMap<T, U>, private val values: List<T>,
                          private val format: String, private val finishMsg: String, private val parse: (T, Message) -> U,
+                         private val validationMessage: String,
                          private val display: (T) -> String, private val finished: (MutableMap<T, U>) -> Unit) {
 	
 	private var index = 0
 	private var originalMessage: InteractionHook? = null
 	
 	fun handleMessageReceived(event: MessageReceivedEvent): Boolean {
-		data[values[index]] = parse.invoke(values[index], event.message)
+		val parsed = parse.invoke(values[index], event.message)
 		event.message.delete().queue_()
+		if (parsed == null) {
+			originalMessage!!.editMessage(content = "$validationMessage\n\n${format.format(display.invoke(values[index]))}").queue_()
+			return false
+		}
+		data[values[index]] = parsed
 		index++
 		return if (index < values.size) {
 			originalMessage!!.editMessage(content = format.format(display.invoke(values[index]))).queue_()

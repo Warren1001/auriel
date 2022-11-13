@@ -13,9 +13,10 @@ class ChainMessageBuilder<T, U> {
 	var finishMsg: String? = null
 	var createMessage: ((MessageCreateData, (InteractionHook) -> Unit) -> Unit)? = null
 	var parse: ((T, Message) -> U)? = null
+	var validationMessage: String = ""
 	var display: ((T) -> String)? = null
 	var finished: ((MutableMap<T, U>) -> Unit)? = null
 	
-	fun build() = ChainMessage(data, values!!, format!!, finishMsg!!, parse!!, display!!, finished!!)
+	fun build() = ChainMessage(data, values!!, format!!, finishMsg!!, parse!!, validationMessage, display!!, finished!!)
 	
 }

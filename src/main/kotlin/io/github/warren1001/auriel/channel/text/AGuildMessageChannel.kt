@@ -61,7 +61,7 @@ class AGuildMessageChannel {
 			// word filters
 			val filters = data.wordFilters.filter { it.containsMatchIn(message) }
 			if (filters.isNotEmpty()) {
-				val blockedPhrases = filters.joinToString(" ") { it.source }
+				val blockedPhrases = filters.joinToString(" ") { it.name }
 				event.message.delete().queue_()
 				var repostId: Long? = null
 				if (filters.all { it.shouldReplace() } && allowsReposting()) {
@@ -149,7 +149,7 @@ class AGuildMessageChannel {
 	}
 	
 	fun removeWordFilter(name: String): Boolean {
-		val removed = data.wordFilters.removeIf { it.source == name }
+		val removed = data.wordFilters.removeIf { it.name == name }
 		if (removed) saveData()
 		return removed
 	}
