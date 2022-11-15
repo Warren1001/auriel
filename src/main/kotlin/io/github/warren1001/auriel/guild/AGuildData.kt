@@ -4,8 +4,9 @@ import io.github.warren1001.auriel.util.filter.SpamFilter
 import io.github.warren1001.auriel.util.filter.WordFilter
 import io.github.warren1001.auriel.util.youtube.YoutubeData
 
-data class AGuildData(val _id: String, val configData: MutableMap<String, Any> = mutableMapOf()) {
+data class AGuildData(val _id: String, val configData: MutableMap<String, Any>) {
 	
+	val userDefaults = mutableMapOf<String, Any>()
 	val wordFilters = mutableSetOf<WordFilter>()
 	val spamFilters = mutableSetOf<SpamFilter>()
 	val vouchBlacklist = mutableSetOf<String>()
@@ -22,6 +23,10 @@ data class AGuildData(val _id: String, val configData: MutableMap<String, Any> =
 		if (!configData.containsKey(key)) {
 			configData[key] = value
 		}
+	}
+	
+	fun setUserDefault(key: String, value: Any) {
+		userDefaults[key] = value
 	}
 	
 	fun has(key: String) = configData.containsKey(key)

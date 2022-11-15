@@ -11,4 +11,12 @@ class Users(private val auriel: Auriel, val guild: AGuild) {
 	
 	fun getUser(id: String) = users.computeIfAbsent(id) { AUser(auriel, it, this) }
 	
+	fun forEachUser(action: (AUser) -> Unit) = users.values.forEach(action)
+	
+	companion object {
+		
+		val LANGUAGES = listOf("enUS", "esES", "esMX", "frFR", "deDE", "itIT", "jaJP", "plPL", "ptBR", "ruRU", "koKR", "zhTW")
+		
+	}
+	
 }

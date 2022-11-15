@@ -20,6 +20,7 @@ class Guilds(private val auriel: Auriel) {
 	val tzTrackerRoleCollection: MongoCollection<TerrorZoneTrackerGuildData> = auriel.database.getCollection("tztrackerroledata", TerrorZoneTrackerGuildData::class.java)
 	val tzTracker: TerrorZoneTracker
 	val guildDataDefaults = mutableMapOf<String, Any>()
+	val userDataDefaults = mutableMapOf<String, Any>()
 	val guildMessageChannelDataDefaults = mutableMapOf<String, Any>()
 
 	init {

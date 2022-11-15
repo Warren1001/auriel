@@ -68,6 +68,34 @@ class Config(private val auriel: Auriel) {
 		return configData
 	}
 	
+	fun createUserConfigData(builder: ConfigDataBuilder.() -> Unit): ConfigData {
+		val configDataBuilder = ConfigDataBuilder()
+		configDataBuilder.setDefault = ConfigDataBuilder.USER_SET_DEFAULT
+		configDataBuilder.modifyValue = ConfigDataBuilder.USER_MODIFY_VALUE
+		configDataBuilder.saveChanges = ConfigDataBuilder.USER_SAVE_CHANGES
+		builder.invoke(configDataBuilder)
+		
+		require(configDataBuilder.key.isNotBlank()) { "Key cannot be blank" }
+		require(configDataBuilder.description.isNotBlank()) { "Description cannot be blank" }
+		require(configDataBuilder.allowedTypes().isNotEmpty()) { "allowedTypes cannot be empty" }
+		requireNotNull(configDataBuilder.valueChanged) { "valueChanged cannot be null" }
+		
+		if (configDataBuilder.defaultValue != null) configDataBuilder.setDefault.invoke(auriel, configDataBuilder.key, configDataBuilder.defaultValue!!)
+		
+		val configData = ConfigData(configDataBuilder.key, configDataBuilder.description, configDataBuilder.permission,
+			configDataBuilder.allowedTypes(), configDataBuilder.defaultValue ?: "None", configDataBuilder.setDefault, configDataBuilder.saveChanges,
+			configDataBuilder.modifyValue, configDataBuilder.valueChanged)
+		this.configData[configData.key] = configData
+		if (configData.description.isNotBlank()) {
+			configData.allowedTypes.forEach {
+				it.configSubCommands.forEach {
+					auriel.autoCompletionHandler.addAutocompleteStrings("user", it, option = "key", configData.key)
+				}
+			}
+		}
+		return configData
+	}
+	
 	fun modifyConfigValue(member: Member, key: String, builder: ConfigContextBuilder.() -> Unit): ConfigError {
 		val configContextBuilder = ConfigContextBuilder()
 		builder.invoke(configContextBuilder)
@@ -267,6 +295,13 @@ class Config(private val auriel: Auriel) {
 			description = "The cooldown in seconds that someone can give a vouch to another user."
 			defaultValue = 3600L
 			allowedTypes(ConfigDataType.NUMBER)
+		}
+		createUserConfigData {
+			key = "user:language"
+			permission = Permission.MANAGE_SERVER
+			description = "The default language that users will use in this server."
+			defaultValue = "enUS"
+			allowedTypes(ConfigDataType.STRING)
 		}
 	}
 

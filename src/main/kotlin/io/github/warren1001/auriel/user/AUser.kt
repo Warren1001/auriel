@@ -23,7 +23,8 @@ class AUser {
 		this.id = id
 		this.users = users
 		this.guild = users.guild
-		this.data = users.userDataCollection.findOneById(id) ?: AUserData(id)
+		this.data = users.userDataCollection.findOneById(id) ?: AUserData(id, guild.data.userDefaults)
+		this.data.verifyDefaults(guild.data.userDefaults)
 	}
 	
 	constructor(auriel: Auriel, id: String, users: Users, data: AUserData) {

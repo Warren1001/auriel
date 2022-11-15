@@ -54,6 +54,17 @@ class ConfigDataBuilder {
 		}
 		val CHANNEL_SAVE_CHANGES: (ConfigContext) -> Unit = { it.channel.a().saveData() }
 		
+		val USER_SET_DEFAULT: (Auriel, String, Any) -> Unit = { auriel, key, value ->
+			auriel.guilds.userDataDefaults[key] = value
+			auriel.guilds.forEachGuild { it.data.setUserDefault(key, value) }
+		}
+		val USER_MODIFY_VALUE: (ConfigContext, String) -> Boolean = { context, key ->
+			var value = context.get()
+			if (value is GuildMessageChannel) value = value.id
+			context.author.a(context.guild.id).data.set(key, value)
+		}
+		val USER_SAVE_CHANGES: (ConfigContext) -> Unit = { it.author.a(it.guild.id).saveData() }
+		
 	}
 	
 }

@@ -11,6 +11,7 @@ import dev.minn.jda.ktx.messages.MessageCreate
 import dev.minn.jda.ktx.messages.SendDefaults
 import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.command.Commands
+import io.github.warren1001.auriel.d2.item.Items
 import io.github.warren1001.auriel.eventhandler.ButtonInteractionHandler
 import io.github.warren1001.auriel.eventhandler.CommandAutoCompleteInteractionHandler
 import io.github.warren1001.auriel.eventhandler.ModalInteractionHandler
@@ -42,6 +43,7 @@ import net.dv8tion.jda.api.utils.cache.CacheFlag
 import org.apache.commons.lang3.StringUtils
 import org.litote.kmongo.KMongo
 import org.litote.kmongo.util.UpdateConfiguration
+import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.system.exitProcess
 
@@ -63,6 +65,7 @@ class Auriel(val jda: JDA, youtubeToken: String) {
 	val autoCompletionHandler = CommandAutoCompleteInteractionHandler()
 	val commands = Commands(this)
 	val config = Config(this)
+	val items = Items()
 	
 	init {
 		SendDefaults.ephemeral = true
@@ -132,6 +135,7 @@ fun main(args: Array<String>) {
 			println("Ready!")
 		} catch (e: Exception) {
 			e.printStackTrace()
+			File("error.txt").writeText(e.stackTraceToString())
 			exitProcess(1)
 		}
 	}

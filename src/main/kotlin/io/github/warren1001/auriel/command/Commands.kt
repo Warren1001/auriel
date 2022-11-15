@@ -12,9 +12,9 @@ import io.github.warren1001.auriel.d2.tz.TerrorZone
 import io.github.warren1001.auriel.guild.ConfigError
 import io.github.warren1001.auriel.queue_
 import io.github.warren1001.auriel.replyFull
+import io.github.warren1001.auriel.user.Users
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.Permission
-import net.dv8tion.jda.api.entities.Activity
 import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.User
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
@@ -100,7 +100,7 @@ class Commands(private val auriel: Auriel) {
 				}
 			}
 		}
-		commandActions["activity"] = {
+		/*commandActions["activity"] = {
 			val message = it.getOption("message")!!.asString
 			val typeString = it.getOption("type")!!.asString.uppercase()
 			if (typeString == "CLEAR") {
@@ -123,7 +123,7 @@ class Commands(private val auriel: Auriel) {
 				}
 			}
 		}
-		auriel.autoCompletionHandler.addAutocompleteStrings("activity", option = "type", "playing", "competing", "listening", "watching", "streaming", "clear")
+		auriel.autoCompletionHandler.setAutocompleteStrings("activity", option = "type", "playing", "competing", "listening", "watching", "streaming", "clear")*/
 		commandActions["tz"] = {
 			val msg = it.getOption("message", "%ROLE% **%ZONE%** is/are Terrorized!") { it.asString }
 			// intellij will tell you its okay to remove the type arguments, its not okay!! program wont compile if its missing (module error)
@@ -359,7 +359,144 @@ class Commands(private val auriel: Auriel) {
 				}
 				subcommand("list", "List all spam bot filters.")
 			}
+			slash("user", "Configuration options for the users of this server.") {
+				restrict(true, Permission.BAN_MEMBERS)
+				subcommand("string", "Set a string user configuration option.") {
+					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
+					option<String>("value", "The value of the configuration option.", required = true)
+				}
+				subcommand("longstring", "Set a long string (multi-line) user configuration option.") {
+					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
+				}
+				subcommand("channel", "Set a channel user configuration option.") {
+					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
+				}
+				subcommand("number", "Set a numerical user configuration option.") {
+					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
+					option<Long>("value", "The value of the configuration option.", required = true)
+				}
+				subcommand("boolean", "Set a boolean user configuration option.") {
+					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
+					option<Boolean>("value", "The value of the configuration option.", required = true)
+				}
+				subcommand("show", "Show the value and relevant information for a user configuration option.") {
+					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
+				}
+			}
+			slash("language", "Change the language of the Diablo II item commands for you.") {
+				restrict(true)
+				option<String>("language", "The language to change to.", required = true, autocomplete = true)
+			}
+			slash("item", "Get information about a Diablo II item.") {
+				restrict(true)
+				option<String>("item", "The name of the item to get information about.", required = true, autocomplete = true)
+			}
 		}.queue_()
+		auriel.autoCompletionHandler.addAutocompleteStrings("item", "item") { member -> auriel.items.getAllItems(member.a().data.getAsString("user:language")) }
+		commandActions["item"] = {
+			val itemName = it.getOption("item")!!.asString
+			val item = auriel.items.getBaseItem(itemName)
+			if (item == null) {
+				it.reply_("No item found with the name $itemName.").queue_()
+			} else {
+				it.reply(MessageCreate(embeds = listOf(item.createEmbed(it.member!!.a().data.getAsString("user:language"))))).queue_()
+			}
+		}
+		auriel.autoCompletionHandler.addAutocompleteStrings("language", option = "language", Users.LANGUAGES)
+		commandActions["language"] = {
+			val language = it.getOption("language")!!.asString
+			if (!Users.LANGUAGES.contains(language)) {
+				it.reply_("Unsupported language. Supported languages are: ${Users.LANGUAGES.joinToString(", ")}").queue_()
+			} else {
+				val user = it.member!!.a()
+				user.data.set("user:language", language)
+				user.saveData()
+				it.reply_("Language changed to $language.").queue_()
+			}
+		}
+		commandActions["user"] = fun(it: SlashCommandInteractionEvent) {
+			val origKey = it.getOption("key")!!.asString
+			var success = ConfigError.NONE
+			if (origKey.contains(":")) {
+				when (it.subcommandName) {
+					"string" -> {
+						val value = it.getOption("value")!!.asString
+						success = auriel.config.modifyConfigValue(it.member!!, origKey) {
+							this.guild = it.guild!!
+							this.channel = it.channel.asGuildMessageChannel()
+							this.author = it.user
+							this.value = value
+						}
+					}
+					"longstring" -> {
+						success = if (auriel.config.hasKey(origKey)) ConfigError.NONE else ConfigError.NOT_FOUND
+						if (success == ConfigError.NONE) {
+							auriel.specialMessageHandler.replySingleMessage(it, "Respond with the value you'd like to set $origKey to.") { value ->
+								val success2 = auriel.config.modifyConfigValue(it.member!!, origKey) {
+									this.guild = it.guild!!
+									this.channel = it.channel.asGuildMessageChannel()
+									this.author = it.user
+									this.value = value
+								}
+								if (success2 == ConfigError.NONE) {
+									MessageEdit("Configuration option set.")
+								} else {
+									MessageEdit("You do not have permission to modify this configuration option.")
+								}
+							}
+						} else {
+							it.reply("That is not a valid key to configure.").queue_()
+						}
+						return
+					}
+					"channel" -> {
+						val value = it.channel.asGuildMessageChannel()
+						success = auriel.config.modifyConfigValue(it.member!!, origKey) {
+							this.guild = it.guild!!
+							this.channel = it.channel.asGuildMessageChannel()
+							this.author = it.user
+							this.value = value
+						}
+					}
+					"number" -> {
+						val value = it.getOption("value")!!.asLong
+						success = auriel.config.modifyConfigValue(it.member!!, origKey) {
+							this.guild = it.guild!!
+							this.channel = it.channel.asGuildMessageChannel()
+							this.author = it.user
+							this.value = value
+						}
+					}
+					"boolean" -> {
+						val value = it.getOption("value")!!.asBoolean
+						success = auriel.config.modifyConfigValue(it.member!!, origKey) {
+							this.guild = it.guild!!
+							this.channel = it.channel.asGuildMessageChannel()
+							this.author = it.user
+							this.value = value
+						}
+					}
+					"show" -> {
+						it.replyFull(auriel.config.prettyPrintConfigData(origKey, it.member!!)).queue_()
+						return
+					}
+				}
+			}
+			when (success) {
+				ConfigError.NONE -> {
+					it.reply_("Configuration option set.").queue_()
+				}
+				ConfigError.NOT_FOUND -> {
+					it.reply_("That is not a valid key to configure.").queue_()
+				}
+				ConfigError.INVALID_DATA_TYPE -> {
+					it.reply_("That is not a valid value for this key. Use `/config show` to see the proper values for this key.").queue_()
+				}
+				ConfigError.NO_PERMISSION -> {
+					it.reply_("You do not have permission to set this option.").queue_()
+				}
+			}
+		}
 		commandActions["blacklistvouch"] = {
 			val id = it.getOption("user")!!.asUser.id
 			val guild = it.guild!!.a()

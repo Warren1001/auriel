@@ -1,10 +1,20 @@
 package io.github.warren1001.auriel.user
 
-data class AUserData(val _id: String) {
+data class AUserData(val _id: String, val userData: MutableMap<String, Any>) {
 	
-	val userData = mutableMapOf<String, Any>()
 	val vouches = mutableListOf<Vouch>()
 	var lastVouch = 0L
+	
+	fun verifyDefaults(defaults: Map<String, Any>): Boolean {
+		var changes = false
+		defaults.forEach { (key, value) ->
+			if (!userData.containsKey(key)) {
+				changes = true
+				userData[key] = value
+			}
+		}
+		return changes
+	}
 	
 	fun set(key: String, value: Any): Boolean {
 		if (userData[key] == value) return false
