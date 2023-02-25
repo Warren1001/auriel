@@ -8,11 +8,13 @@ import dev.minn.jda.ktx.messages.MessageEdit
 import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.Auriel
 import io.github.warren1001.auriel.a
+import io.github.warren1001.auriel.d2.D2
 import io.github.warren1001.auriel.d2.tz.TerrorZone
 import io.github.warren1001.auriel.guild.ConfigError
 import io.github.warren1001.auriel.queue_
 import io.github.warren1001.auriel.replyFull
 import io.github.warren1001.auriel.user.Users
+import io.github.warren1001.d2data.enums.json.D2DesecratedZones
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Role
@@ -22,6 +24,7 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.interactions.components.ActionRow
 import net.dv8tion.jda.api.interactions.components.buttons.Button
 import java.awt.Color
+import java.io.File
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
@@ -30,7 +33,13 @@ class Commands(private val auriel: Auriel) {
 	private val commandActions: MutableMap<String, (SlashCommandInteractionEvent) -> Unit> = mutableMapOf()
 	
 	init {
-		auriel.jda.listener<SlashCommandInteractionEvent> { commandActions[it.name]?.invoke(it) }
+		auriel.jda.listener<SlashCommandInteractionEvent> {
+			try {
+				commandActions[it.name]!!.invoke(it)
+			} catch (e: Exception) {
+				auriel.warren(e.stackTraceToString())
+			}
+		}
 		commandActions["ping"] = { it.reply_("Pong!").queue_() }
 		commandActions["stop"] = { it.reply_("Shutting down.").queue_ { auriel.shutdown() } }
 		commandActions["rolegivemsg"] = {
@@ -127,14 +136,16 @@ class Commands(private val auriel: Auriel) {
 		commandActions["tz"] = {
 			val msg = it.getOption("message", "%ROLE% **%ZONE%** is/are Terrorized!") { it.asString }
 			// intellij will tell you its okay to remove the type arguments, its not okay!! program wont compile if its missing (module error)
-			auriel.specialMessageHandler.replyChainMessageCallback<TerrorZone, Role?> {
+			auriel.specialMessageHandler.replyChainMessageCallback<String, Role?> {
 				userId = it.user.id
-				values = TerrorZone.values().toList()
+				values = D2.files.loadJson(D2DesecratedZones.FILE_PATH)["desecrated_zones"][0]["zones"].asIterable().map {
+					it["levels"].asIterable().map { it["level_id"].asInt() }.toList().joinToString(",")
+				}
 				format = "What role do you want to use for the Terror Zone **%s**?"
 				finishMsg = "Done setting up roles!"
 				validationMessage = "**You must provide a valid role in the form of a role mention as if you were tagging the role. Try again.**"
 				parse = { _, message -> message.mentions.roles.firstOrNull() }
-				display = TerrorZone::zoneName
+				display = { it.split(',') }
 				createMessage = { messageCreateData, callback -> it.reply_(messageCreateData.content).queue_ { callback.invoke(it) } }
 				finished = { data -> auriel.guilds.getGuild(it.guild!!.id).setupTZ(it.channel.id, msg, data) }
 			}
@@ -145,12 +156,12 @@ class Commands(private val auriel: Auriel) {
 				it.reply_("This feature has not been setup yet.").queue_()
 			} else {
 				val roleIds = guild.tzGuildData.roleIds!!
-				val roleIdsList: List<Map.Entry<TerrorZone, String>> = roleIds.entries.toList()
-				val roleIdsByAct: List<MutableList<Map.Entry<TerrorZone, String>>> = listOf(mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf())
+				val roleIdsList: List<Map.Entry<String, String>> = roleIds.entries.toList()
+				val roleIdsByAct: List<MutableList<Map.Entry<String, String>>> = listOf(mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf())
 				roleIdsList.forEach { roleIdsByAct[it.key.act - 1].add(it) }
 				var randId = 0
 				
-				val messageCreateData = auriel.specialMessageHandler.replyMultiSelectMenuMessage<MutableList<Map.Entry<TerrorZone, String>>> {
+				val messageCreateData = auriel.specialMessageHandler.replyMultiSelectMenuMessage<MutableList<Map.Entry<String, String>>> {
 					userId = it.user.id
 					values = roleIdsByAct
 					format = "What role do you want to use for the Terror Zones in **%s**?"
@@ -391,7 +402,21 @@ class Commands(private val auriel: Auriel) {
 				restrict(true)
 				option<String>("item", "The name of the item to get information about.", required = true, autocomplete = true)
 			}
+			slash("unique", "Get information about a Diablo II unique item.") {
+				restrict(true)
+				option<String>("item", "The name of the unique item to get information about.", required = true, autocomplete = true)
+			}
 		}.queue_()
+		auriel.autoCompletionHandler.addAutocompleteStrings("unique", "item") { member -> auriel.items.getAllUniqueItems(member.a().data.getAsString("user:language")) }
+		commandActions["unique"] = {
+			val itemName = it.getOption("item")!!.asString
+			val item = auriel.items.getUniqueItem(itemName)
+			if (item == null) {
+				it.reply_("No item found with the name $itemName.").queue_()
+			} else {
+				it.reply(MessageCreate(embeds = listOf(item.createEmbed(it.member!!.a().data.getAsString("user:language"))))).queue_()
+			}
+		}
 		auriel.autoCompletionHandler.addAutocompleteStrings("item", "item") { member -> auriel.items.getAllItems(member.a().data.getAsString("user:language")) }
 		commandActions["item"] = {
 			val itemName = it.getOption("item")!!.asString
@@ -588,7 +613,8 @@ class Commands(private val auriel: Auriel) {
 					.setColor(Color.GREEN)
 					.setTimestamp(Instant.now())
 				for (vouch in vouches) {
-					embed.addField(vouch.vouchedBy.let { user.guild.getMemberById(it)!! }.user.asTag, "(${vouch.id}) - ${vouch.reason}", false)
+					val voucher = vouch.vouchedBy.let { auriel.jda.getUserById(it) }?.asTag ?: "Unknown User (${vouch.vouchedBy})"
+					embed.addField(voucher, "(${vouch.id}) - ${vouch.reason}", false)
 				}
 				if (hide) {
 					it.reply_(embeds = listOf(embed.build())).queue_()

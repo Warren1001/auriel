@@ -11,6 +11,7 @@ import io.github.warren1001.auriel.channel.text.AGuildMessageChannelData
 import io.github.warren1001.auriel.d2.clone.CloneHandler
 import io.github.warren1001.auriel.d2.tz.TerrorZone
 import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerGuildData
+import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerStatus
 import io.github.warren1001.auriel.user.Users
 import io.github.warren1001.auriel.util.filter.SpamFilter
 import io.github.warren1001.auriel.util.filter.WordFilter
@@ -84,7 +85,7 @@ class AGuild {
 	
 	fun saveData() = auriel.guilds.guildDataCollection.updateOne(data, options = UpdateOptions().upsert(true))
 	
-	fun setupTZ(channelId: String, format: String, roles: Map<TerrorZone, Role?>) {
+	fun setupTZ(channelId: String, format: String, roles: Map<String, Role?>) {
 		tzGuildData.channelId = channelId
 		tzGuildData.messageTemplate = format
 		tzGuildData.roleIds = roles.filterValues { it != null }.mapValues { it.value!!.id }
@@ -218,10 +219,13 @@ class AGuild {
 		return removed
 	}
 	
-	fun onTerrorZoneChange(tz: TerrorZone, deleteLast: Boolean = false) {
+	fun onTerrorZoneChange(zoneIds: List<Int>, deleteLast: Boolean = false) {
+		val zoneIdsString = zoneIds.joinToString(",")
 		if (deleteLast) lastTZAnnouncement?.delete()?.queueDelete()
 		auriel.jda.getChannelById(GuildMessageChannel::class.java, tzGuildData.channelId!!)!!
-			.message(tzGuildData.messageTemplate!!.replace("%ROLE%", tzGuildData.roleMentions!![tz]!!).replace("%ZONE%", tz.zoneName)).queue_ { lastTZAnnouncement = it }
+			.message(tzGuildData.messageTemplate!!.replace("%ROLE%", tzGuildData.roleMentions!![zoneIdsString]!!).replace("%ZONE%", tz.zoneName)).queue_ { lastTZAnnouncement = it }
 	}
+	
+	fun terrorZoneTrackerUpdate(status: TerrorZoneTrackerStatus) = auriel.jda.getChannelById(GuildMessageChannel::class.java, tzGuildData.channelId!!)!!.message(msg).queue_()
 	
 }

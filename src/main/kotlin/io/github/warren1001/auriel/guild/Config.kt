@@ -238,6 +238,27 @@ class Config(private val auriel: Auriel) {
 			}
 			saveChanges = { auriel.guilds.tzTracker.saveData() }
 		}
+		createGuildConfigData {
+			key = "tz:language"
+			permission = Permission.MANAGE_SERVER
+			description = "The language to use for the Terror Zone tracker."
+			defaultValue = "enUS"
+			allowedTypes(ConfigDataType.STRING)
+		}
+		createGuildConfigData {
+			key = "tz:online"
+			permission = Permission.MANAGE_SERVER
+			description = "The message to send when the automated Terror Zone tracker comes back online."
+			defaultValue = "The Terror Zone tracker is back online!"
+			allowedTypes(ConfigDataType.STRING)
+		}
+		createGuildConfigData {
+			key = "tz:offline"
+			permission = Permission.MANAGE_SERVER
+			description = "The message to send when the automated Terror Zone tracker goes offline."
+			defaultValue = "The Terror Zone tracker is offline!"
+			allowedTypes(ConfigDataType.STRING)
+		}
 		createChannelConfigData {
 			key = "channel:max-message-age"
 			permission = Permission.MANAGE_SERVER

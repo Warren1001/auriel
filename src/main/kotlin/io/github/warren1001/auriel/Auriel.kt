@@ -108,6 +108,7 @@ class Auriel(val jda: JDA, youtubeToken: String) {
 	}
 	
 	fun shutdown() {
+		guilds.tzTracker.stopTracker()
 		jda.shutdown()
 		mongo.close()
 	}

@@ -11,7 +11,7 @@ import net.dv8tion.jda.api.events.interaction.component.SelectMenuInteractionEve
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import org.litote.kmongo.findOneById
 
-class Guilds(private val auriel: Auriel) {
+class Guilds(val auriel: Auriel) {
 	
 	private val guilds = mutableMapOf<String, AGuild>()
 	
