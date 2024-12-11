@@ -1,5 +1,3 @@
-Welcome to Warren1001's Masterpiece of Diablo 2 Resurrected bot.
-
 Documenation is a little rough around the edges, but hopefully that will improve as we go.
 
 
