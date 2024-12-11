@@ -21,6 +21,7 @@ import io.github.warren1001.auriel.guild.Guilds
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.Member
+import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.User
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
@@ -28,7 +29,7 @@ import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
-import net.dv8tion.jda.api.events.interaction.component.SelectMenuInteractionEvent
+import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.events.session.ReadyEvent
 import net.dv8tion.jda.api.exceptions.ErrorHandler
@@ -47,7 +48,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.system.exitProcess
 
-class Auriel(val jda: JDA, youtubeToken: String) {
+class Auriel(val jda: JDA, youtubeToken: String, emuToken: String) {
 	
 	companion object {
 		val LINK_PATTERN: Regex = Regex("https?://")
@@ -60,7 +61,7 @@ class Auriel(val jda: JDA, youtubeToken: String) {
 	val youtube: YouTube = YouTube.Builder(GoogleNetHttpTransport.newTrustedTransport(), GsonFactory.getDefaultInstance()) {}.setApplicationName("new-video-checker")
 		.setYouTubeRequestInitializer(YouTubeRequestInitializer(youtubeToken)).build()
 	val database: MongoDatabase = mongo.getDatabase("auriel")
-	val guilds = Guilds(this)
+	val guilds = Guilds(this, emuToken)
 	val specialMessageHandler = SpecialMessageHandler(this)
 	val autoCompletionHandler = CommandAutoCompleteInteractionHandler()
 	val commands = Commands(this)
@@ -84,7 +85,7 @@ class Auriel(val jda: JDA, youtubeToken: String) {
 				warren(e.stackTraceToString())
 			}
 		}
-		jda.listener<SelectMenuInteractionEvent> {
+		jda.listener<StringSelectInteractionEvent> {
 			try {
 				specialMessageHandler.handleSelectMenu(it)
 			} catch (e: Exception) {
@@ -105,6 +106,7 @@ class Auriel(val jda: JDA, youtubeToken: String) {
 				warren(e.stackTraceToString())
 			}
 		}
+		guilds.tzTracker.startTracker()
 	}
 	
 	fun shutdown() {
@@ -124,6 +126,7 @@ private lateinit var auriel: Auriel
 fun main(args: Array<String>) {
 	val discordToken = args[0]
 	val youtubeToken = args[1]
+	val emuToken = args[2]
 	val jda: JDA = light(discordToken, enableCoroutines = true) {
 		enableIntents(GatewayIntent.values().toList())
 		disableCache(CacheFlag.ACTIVITY, CacheFlag.CLIENT_STATUS, CacheFlag.ONLINE_STATUS, CacheFlag.STICKER, CacheFlag.VOICE_STATE)
@@ -132,7 +135,7 @@ fun main(args: Array<String>) {
 	}
 	jda.listener<ReadyEvent> {
 		try {
-			auriel = Auriel(jda, youtubeToken)
+			auriel = Auriel(jda, youtubeToken, emuToken)
 			println("Ready!")
 		} catch (e: Exception) {
 			e.printStackTrace()
@@ -142,17 +145,24 @@ fun main(args: Array<String>) {
 	}
 }
 
-fun User.dm(message: String) = openPrivateChannel().queue_ { it.fullMessage(message).queue_() }
+fun User.dm(message: String) = openPrivateChannel().flatMap { it.message(message) }
 
-fun Member.dmWithFallback(message: String) = user.openPrivateChannel().queue { it.message(message).queue_(failure = ErrorHandler().handle(ErrorResponse.CANNOT_SEND_TO_USER) {
-	val aGuild = auriel.guilds.getGuild(guild.id)
-	if (aGuild.data.has("guild:fallback-channel")) {
-		guild.getTextChannelById(aGuild.data.getAsString("guild:fallback-channel"))!!
-			.message("*${user.asMention} You have private messages disabled, so I'm forced to message you here:*\n$message").queue_()
-	} else {
-		aGuild.logDMFailure(this, message)
-	}
-}) }
+fun User.fullDm(message: String) = openPrivateChannel().flatMap { it.fullMessage(message) }
+
+fun Member.dm(message: String, failure: () -> String? = { "" }, callback: (Message) -> Unit = {}) {
+	user.openPrivateChannel().flatMap { it.message(message) }.queue_(success = { callback(it) }, failure = ErrorHandler().handle(ErrorResponse.CANNOT_SEND_TO_USER) {
+		val aGuild = guild.a()
+		val modifiedMessage = failure()?.ifEmpty { message }
+		if (modifiedMessage != null) {
+			if (aGuild.data.has("guild:fallback-channel")) {
+				guild.getTextChannelById(aGuild.data.getAsString("guild:fallback-channel"))!!
+					.message("*${user.asMention} You have private messages disabled, so I'm forced to message you here:*\n$modifiedMessage").queue_ { callback(it) }
+			} else {
+				aGuild.logDMFailure(this, message)
+			}
+		}
+	})
+}
 
 fun Guild.a() = auriel.guilds.getGuild(id)
 
@@ -162,9 +172,9 @@ fun Member.a() = guild.a().users.getUser(id)
 
 fun User.a(guildId: String) = auriel.guilds.getGuild(guildId).users.getUser(id)
 
-fun Member.fullMention() = "$asMention (${user.name}#${user.discriminator})"
+fun Member.fullMention() = "$asMention (${user.name})"
 
-fun User.fullMention() = "$asMention ($name#$discriminator)"
+fun User.fullMention() = "$asMention ($name)"
 
 fun User.isWarren() = id == "164118147073310721"
 

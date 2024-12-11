@@ -9,12 +9,8 @@ class ModalInteractionHandler {
 		if (!event.isFromGuild) return
 		val modalId = event.modalId
 		val guild = event.guild!!.a()
-		if (modalId == "clone:request") {
-			guild.cloneHandler.submitModal(event)
-		} else if (modalId == "clone:help") {
-			guild.cloneHandler.completedHelp(event)
-		}
-		
+		guild.cloneHandler.onModalSubmit(event)
+		print("modal submitted")
 	}
 	
 }

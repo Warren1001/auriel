@@ -1,12 +1,15 @@
 package io.github.warren1001.auriel.eventhandler
 
 import io.github.warren1001.auriel.Auriel
+import io.github.warren1001.auriel.a
+import io.github.warren1001.auriel.countMatches
+import io.github.warren1001.auriel.d2.clone.InteractionRelation
 import io.github.warren1001.auriel.util.*
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.User
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
-import net.dv8tion.jda.api.events.interaction.component.SelectMenuInteractionEvent
+import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.interactions.InteractionHook
 import net.dv8tion.jda.api.interactions.components.LayoutComponent
@@ -21,8 +24,15 @@ class SpecialMessageHandler(private val auriel: Auriel) {
 	private val pinMessages: MutableMap<String, PinMessage> = mutableMapOf()
 	private val singleMessages: MutableMap<String, SingleMessage> = mutableMapOf()
 
-	fun handleSelectMenu(event: SelectMenuInteractionEvent) {
+	fun handleSelectMenu(event: StringSelectInteractionEvent) {
+		if (event.componentId.countMatches(":") > 2) {
+			val guildId = event.componentId.split(':')[1]
+			if (auriel.guilds.getGuild(guildId).cloneHandler.onStringSelectSelection(event) == InteractionRelation.RELATED) return
+		}
 		if (!event.isFromGuild) return
+		if (event.componentId.contains(":")) {
+			if (event.guild!!.a().cloneHandler.onStringSelectSelection(event) == InteractionRelation.RELATED) return
+		}
 		if (event.componentId.contains("-")) {
 			val id = event.componentId.substringBefore("-")
 			multiSelectMessages[id]?.handleSelectMenu(event)?.let {

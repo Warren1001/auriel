@@ -32,7 +32,12 @@ data class AUserData(val _id: String, val userData: MutableMap<String, Any>) {
 	fun get(key: String) = userData[key]
 	fun getOrDefault(key: String, default: Any) = userData.getOrDefault(key, default)
 	fun getAsString(key: String) = get(key) as String
-	fun getAsNumber(key: String) = get(key) as Number
+	fun getAsNumber(key: String, default: Int = 0) = getOrDefault(key, default) as Number
 	fun getAsBoolean(key: String) = get(key) as Boolean
+	fun incrementInt(key: String, amount: Int = 1): Int {
+		val newValue = getAsNumber(key).toInt() + amount
+		set(key, newValue)
+		return newValue
+	}
 
 }

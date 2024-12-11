@@ -102,15 +102,20 @@ class AGuildMessageChannel {
 		val maxMessageAge = data.getAsNumber("channel:max-message-age").toLong()
 		val messageAgeInterval = data.getAsNumber("channel:message-age-interval").toLong()
 		if (maxMessageAge > 0L && messageAgeInterval > 0L) {
-			messageAgeTimer = timer("$id-messageAge", true, 60 * 1000, messageAgeInterval) {
-				try {
-					MessageHistory.getHistoryBefore(auriel.jda.getTextChannelById(id)!!, TimeUtil.getDiscordTimestamp(System.currentTimeMillis() - maxMessageAge).toString())
-						.queue_ { it.channel.asGuildMessageChannel().purgeMessages(it.retrievedHistory.filter { it.member != null && !it.member!!.hasPermission(Permission.BAN_MEMBERS) }) }
-				} catch (e: Exception) {
-					auriel.warren(e.stackTraceToString())
+			val channel = auriel.jda.getTextChannelById(id)
+			if (channel == null) {
+				auriel.warren("Channel $id not found when trying to start message age timer")
+			} else {
+				messageAgeTimer = timer("$id-messageAge", true, 60 * 1000, messageAgeInterval) {
+					try {
+						MessageHistory.getHistoryBefore(channel, TimeUtil.getDiscordTimestamp(System.currentTimeMillis() - maxMessageAge).toString())
+							.queue_ { it.channel.asGuildMessageChannel().purgeMessages(it.retrievedHistory.filter { it.member != null && !it.member!!.hasPermission(Permission.BAN_MEMBERS) }) }
+					} catch (e: Exception) {
+						auriel.warren(e.stackTraceToString())
+					}
 				}
+				return true
 			}
-			return true
 		}
 		return false
 	}
@@ -122,17 +127,22 @@ class AGuildMessageChannel {
 	
 	fun deleteAllButOneMessage() {
 		if (data.getAsBoolean("channel:only-one-message")) {
-			MessageHistory.getHistoryFromBeginning(auriel.jda.getTextChannelById(id)!!).queue_ { history ->
-				history.channel.asTextChannel().purgeMessages(history.retrievedHistory.filter {
-					if (it.author.isBot || (it.member != null && it.member!!.hasPermission(Permission.BAN_MEMBERS))) {
-						false
-					} else if (lastMemberMessage.contains(it.author)) {
-						true
-					} else {
-						lastMemberMessage[it.author] = it
-						false
-					}
-				})
+			var channel = auriel.jda.getTextChannelById(id)
+			if (channel == null) {
+				auriel.warren("Channel $id not found when trying to delete all but one message")
+			} else {
+				MessageHistory.getHistoryFromBeginning(channel).queue_ { history ->
+					history.channel.asTextChannel().purgeMessages(history.retrievedHistory.filter {
+						if (it.author.isBot || (it.member != null && it.member!!.hasPermission(Permission.BAN_MEMBERS))) {
+							false
+						} else if (lastMemberMessage.contains(it.author)) {
+							true
+						} else {
+							lastMemberMessage[it.author] = it
+							false
+						}
+					})
+				}
 			}
 		}
 	}

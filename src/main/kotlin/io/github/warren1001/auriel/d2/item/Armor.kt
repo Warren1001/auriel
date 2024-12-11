@@ -2,10 +2,11 @@ package io.github.warren1001.auriel.d2.item
 
 import dev.minn.jda.ktx.messages.Embed
 import io.github.warren1001.d2data.D2Sheet
-import io.github.warren1001.d2data.enums.D2Armor
-import io.github.warren1001.d2data.enums.D2Belts
-import io.github.warren1001.d2data.enums.D2ItemTypes
-import io.github.warren1001.d2data.enums.D2Weapons
+import io.github.warren1001.d2data.enums.sheet.D2Armor
+import io.github.warren1001.d2data.enums.sheet.D2Belts
+import io.github.warren1001.d2data.enums.sheet.D2ItemTypes
+import io.github.warren1001.d2data.enums.sheet.D2Weapons
+import io.github.warren1001.d2data.lang.LangString
 
 class Armor(items: Items, names: Map<String, String>, rowIndex: Int, armor: D2Sheet, itemTypes: D2Sheet, belts: D2Sheet):
 	Item(items, names,
@@ -13,7 +14,7 @@ class Armor(items: Items, names: Map<String, String>, rowIndex: Int, armor: D2Sh
 		rlvl = armor.asInt(rowIndex, D2Weapons.LEVEL_REQ, 0)
 	) {
 	
-	private val strings = mutableMapOf<String, LangStrings>()
+	private val strings = mutableMapOf<String, LangString>()
 	
 	val type = armor[rowIndex, D2Armor.TYPE]
 	val rstr = armor.asInt(rowIndex, D2Weapons.REQ_STR, 0)

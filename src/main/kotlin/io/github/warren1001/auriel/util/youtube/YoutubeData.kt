@@ -6,5 +6,6 @@ class YoutubeData {
 	var channelId: String? = null
 	var message: String = "%TITLE% %URL%"
 	var lastUpdate: Long = 0L
+	var lastVideoId: String? = null
 	
 }

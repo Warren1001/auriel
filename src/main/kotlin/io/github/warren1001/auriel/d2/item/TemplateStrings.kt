@@ -1,14 +1,17 @@
 package io.github.warren1001.auriel.d2.item
 
+import io.github.warren1001.d2data.lang.LangString
+import io.github.warren1001.d2data.lang.MultiLangString
+
 open class TemplateStrings(protected val key: String, private val strings: Map<String, String>) {
 	
 	var argumentCount = if (strings.isEmpty()) 0 else COUNT_REGEX.findAll(strings.values.first()).count()
 	
 	open fun get(key: String) = strings[key]
 	
-	open fun format(vararg args: Any): LangStrings {
-		return if (argumentCount == 0) MultiLangStrings(key, strings.toMutableMap())
-		else MultiLangStrings(key, strings.mapValues {
+	open fun format(vararg args: Any): LangString {
+		return if (argumentCount == 0) MultiLangString(key, strings.toMutableMap())
+		else MultiLangString(key, strings.mapValues {
 			try {
 				it.value.format(*args).replace("+-", "-")
 			} catch (e: Exception) {

@@ -11,23 +11,44 @@ import kotlin.concurrent.timer
 
 class YoutubeAnnouncer(private val auriel: Auriel, private val guild: AGuild, private val data: YoutubeData, youtube: YouTube) {
 	
-	private val playlistItemsRequest = youtube.PlaylistItems().list(mutableListOf("snippet"))
+	private val playlistItemsRequest = youtube.PlaylistItems().list(listOf("snippet"))
+	private val videosRequest = youtube.Videos().list(listOf("snippet"))
 	
 	private var timer: Timer? = null
 	
+	private val alreadyPosted: MutableSet<String> = mutableSetOf()
+	
 	init {
 		playlistItemsRequest.playlistId = data.playListId
-		playlistItemsRequest.maxResults = 1
+		playlistItemsRequest.maxResults = 2
+		videosRequest.maxResults = 1
+		data.lastVideoId?.let { alreadyPosted.add(it) }
 	}
 	
 	private fun checkForUpload() {
 		try {
-			playlistItemsRequest.execute().items.filter { it.snippet.resourceId.kind == "youtube#video" && it.snippet.publishedAt.value > data.lastUpdate }
-				.sortedWith(Comparator.comparingLong { it.snippet.publishedAt.value }).forEach {
-					val videoId = it.snippet.resourceId.videoId
-					val time = it.snippet.publishedAt.value
-					val title = it.snippet.title
-					updateLastUpdate(time)
+			playlistItemsRequest.execute().items.filter {
+				//println("publishedAt: ${it.snippet.publishedAt.value} lastUpdate: ${data.lastUpdate}")
+				it.snippet.resourceId.kind == "youtube#video" && it.snippet.publishedAt.value > data.lastUpdate
+			}
+				.map {
+					val realTime = it.snippet.publishedAt.value
+					videosRequest.setId(listOf(it.snippet.resourceId.videoId))
+					Pair(videosRequest.execute().items[0], realTime)
+				}.filter {
+					return@filter if (it.first.snippet.liveBroadcastContent != "none") {
+						if (!alreadyPosted.contains(it.first.id)) alreadyPosted.add(it.first.id)
+						false
+					}
+					else !alreadyPosted.contains(it.first.id)
+				}
+				.sortedWith(Comparator.comparingLong { it.second }).forEach {
+					val video = it.first
+					val videoId = video.id
+					val time = it.second
+					println("videoId: $videoId time: $time")
+					val title = video.snippet.title
+					updateLastPost(time, videoId)
 					auriel.jda.getChannel<GuildMessageChannel>(data.channelId!!)!!.sendMessage(
 						data.message.replace("%TITLE%", title).replace("%LINK%", "https://www.youtube.com/watch?v=$videoId")
 							.replace("%URL%", "https://www.youtube.com/watch?v=$videoId")
@@ -38,8 +59,10 @@ class YoutubeAnnouncer(private val auriel: Auriel, private val guild: AGuild, pr
 		}
 	}
 	
-	private fun updateLastUpdate(time: Long) {
+	private fun updateLastPost(time: Long, videoId: String) {
 		data.lastUpdate = time
+		data.lastVideoId = videoId
+		alreadyPosted.add(videoId)
 		guild.saveData()
 	}
 	
@@ -65,7 +88,7 @@ class YoutubeAnnouncer(private val auriel: Auriel, private val guild: AGuild, pr
 	fun start(): Boolean {
 		if (timer != null) return true
 		if (data.playListId == null || data.channelId == null) return false
-		timer = timer("ytAnnouncer-${guild.id}", true, 1000 * 60 * 1, 1000 * 60 * 1) { checkForUpload() }
+		timer = timer("ytAnnouncer-${guild.id}", true, 0, 1000 * 60 * 1) { checkForUpload() }
 		return true
 	}
 	

@@ -6,7 +6,7 @@
     
     <artifactId>auriel</artifactId>
     <groupId>io.github.warren1001</groupId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
     
     <name>Auriel</name>
@@ -14,10 +14,10 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <kotlin.code.style>official</kotlin.code.style>
-        <kotlin.compiler.jvmTarget>18</kotlin.compiler.jvmTarget>
-        <jackson-version>2.14.0</jackson-version>
-        <kotlin-coroutines-version>1.6.4</kotlin-coroutines-version>
-        <kotlin.version>1.7.22</kotlin.version> <!-- 1.7.20 is bugged -->
+        <kotlin.compiler.jvmTarget>19</kotlin.compiler.jvmTarget>
+        <jackson-version>2.18.0</jackson-version>
+        <kotlin-coroutines-version>1.9.0</kotlin-coroutines-version>
+        <kotlin.version>2.0.21</kotlin.version>
     </properties>
     
     <build>
@@ -27,7 +27,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.2.4</version>
+                <version>3.6.0</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -40,7 +40,7 @@
             <plugin>
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-maven-plugin</artifactId>
-                <version>${kotlin.version}</version>
+                <version>2.0.21</version>
                 <executions>
                     <execution>
                         <id>compile</id>
@@ -57,7 +57,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>3.2.0</version>
+                <version>3.4.2</version>
                 <configuration>
                     <archive>
                         <manifest>
@@ -70,7 +70,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.10.0</version>
+                <version>3.13.0</version>
                 <configuration>
                     <source>${kotlin.compiler.jvmTarget}</source>
                     <target>${kotlin.compiler.jvmTarget}</target>
@@ -108,13 +108,13 @@
     <dependencies>
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
-            <artifactId>kotlin-stdlib-jdk8</artifactId>
+            <artifactId>kotlin-stdlib</artifactId>
             <version>${kotlin.version}</version>
         </dependency>
         <dependency>
             <groupId>net.dv8tion</groupId>
             <artifactId>JDA</artifactId>
-            <version>5.0.0-alpha.21</version>
+            <version>5.1.2</version>
             <exclusions>
                 <exclusion>
                     <groupId>club.minnced</groupId>
@@ -125,7 +125,7 @@
         <dependency>
             <groupId>com.github.minndevelopment</groupId>
             <artifactId>jda-ktx</artifactId>
-            <version>0.9.5-alpha.19</version>
+            <version>0.12.0</version>
         </dependency>
         <dependency>
             <groupId>org.jetbrains.kotlinx</groupId>
@@ -135,7 +135,7 @@
         <dependency>
             <groupId>org.litote.kmongo</groupId>
             <artifactId>kmongo</artifactId>
-            <version>4.8.0</version>
+            <version>5.1.0</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -154,38 +154,38 @@
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-slf4j-impl</artifactId>
-            <version>2.19.0</version>
+            <artifactId>log4j-slf4j2-impl</artifactId>
+            <version>2.24.1</version>
         </dependency>
         <dependency>
             <groupId>com.google.api-client</groupId>
             <artifactId>google-api-client</artifactId>
-            <version>2.0.1</version>
+            <version>2.7.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.apis</groupId>
             <artifactId>google-api-services-youtube</artifactId>
-            <version>v3-rev20221108-2.0.0</version>
+            <version>v3-rev20240926-2.0.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.apis</groupId>
             <artifactId>google-api-services-youtubeAnalytics</artifactId>
-            <version>v2-rev20210510-2.0.0</version>
+            <version>v2-rev20230704-2.0.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.apis</groupId>
             <artifactId>google-api-services-youtubereporting</artifactId>
-            <version>v1-rev20220319-2.0.0</version>
+            <version>v1-rev20230704-2.0.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.oauth-client</groupId>
             <artifactId>google-oauth-client-jetty</artifactId>
-            <version>1.34.1</version>
+            <version>1.36.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.http-client</groupId>
             <artifactId>google-http-client-jackson2</artifactId>
-            <version>1.42.3</version>
+            <version>1.45.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.collections</groupId>
@@ -195,7 +195,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.12.0</version>
+            <version>3.17.0</version>
         </dependency>
         <dependency>
             <groupId>io.github.warren1001</groupId>

@@ -7,11 +7,11 @@ import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerData
 import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerGuildData
 import io.github.warren1001.auriel.queue_
 import net.dv8tion.jda.api.entities.channel.ChannelType
-import net.dv8tion.jda.api.events.interaction.component.SelectMenuInteractionEvent
+import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import org.litote.kmongo.findOneById
 
-class Guilds(val auriel: Auriel) {
+class Guilds(val auriel: Auriel, emuToken: String) {
 	
 	private val guilds = mutableMapOf<String, AGuild>()
 	
@@ -32,7 +32,7 @@ class Guilds(val auriel: Auriel) {
 			data = TerrorZoneTrackerData("default")
 			tzTrackerCollection.insertOne(data)
 		}
-		tzTracker = TerrorZoneTracker(this, data)
+		tzTracker = TerrorZoneTracker(this, data, emuToken)
 	}
 	
 	fun handleMessageReceived(event: MessageReceivedEvent): Boolean {
@@ -52,7 +52,7 @@ class Guilds(val auriel: Auriel) {
 	
 	fun forEachGuild(block: (AGuild) -> Unit) = guilds.values.forEach(block)
 	
-	fun handleSelectMenuInteraction(event: SelectMenuInteractionEvent) {
+	fun handleSelectMenuInteraction(event: StringSelectInteractionEvent) {
 		if (!event.isFromGuild) return
 		val guild = guilds[event.guild!!.id] ?: return
 		guild.handleSelectMenuInteraction(event)

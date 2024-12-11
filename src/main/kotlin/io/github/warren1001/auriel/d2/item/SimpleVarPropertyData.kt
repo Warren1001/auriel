@@ -1,11 +1,12 @@
 package io.github.warren1001.auriel.d2.item
 
+import io.github.warren1001.d2data.lang.LangString
 import kotlin.math.roundToInt
 
 open class SimpleVarPropertyData(propertyCode: String, val variable: Any, range: IntRange, template: TemplateStrings, priority: Int):
 	SimplePropertyData(propertyCode, range, template, priority) {
 	
-	override fun format(): LangStrings {
+	override fun format(): LangString {
 		val argCount = getTemplate().argumentCount
 		var par = variable
 		var range1 = range

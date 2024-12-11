@@ -4,8 +4,8 @@ import kotlin.math.max
 
 class ColdDamageRangePropertyCombiner(private val propertyCode: String, items: Items): PropertyListTransformer {
 	
-	private val combinedTemplate = TemplateStrings("strModColdDamageRange", items.itemModifiers["strModColdDamageRange"]!!)
-		.merge(TemplateStrings("timeSecondsFormatString", items.ui["timeSecondsFormatString"]!!), " ", "(%s)")
+	private val combinedTemplate = TemplateStrings("strModColdDamageRange", items.itemModifiers["strModColdDamageRange"].getStrings())
+		.merge(TemplateStrings("timeSecondsFormatString", items.ui["timeSecondsFormatString"].getStrings()), " ", "(%s)")
 	
 	override fun contains(propertyCodes: Collection<PropertyData>) = propertyCodes.any { it.getPropertyCode() == "cold-min" }
 			&& propertyCodes.any { it.getPropertyCode() == "cold-max" }

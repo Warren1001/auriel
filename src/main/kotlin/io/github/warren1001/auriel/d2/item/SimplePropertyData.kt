@@ -1,5 +1,7 @@
 package io.github.warren1001.auriel.d2.item
 
+import io.github.warren1001.d2data.lang.LangString
+
 open class SimplePropertyData(private val propertyCode: String, val range: IntRange, private val template: TemplateStrings, private val priority: Int): PropertyData {
 	
 	override fun getPropertyCode() = propertyCode
@@ -8,7 +10,7 @@ open class SimplePropertyData(private val propertyCode: String, val range: IntRa
 	
 	override fun getPriority() = priority
 	
-	override fun format(): LangStrings {
+	override fun format(): LangString {
 		val argCount = template.argumentCount
 		return if (argCount == 1) {
 			val ras = range.getAsString()

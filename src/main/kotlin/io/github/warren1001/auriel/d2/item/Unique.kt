@@ -2,7 +2,7 @@ package io.github.warren1001.auriel.d2.item
 
 import dev.minn.jda.ktx.messages.Embed
 import io.github.warren1001.d2data.D2Sheet
-import io.github.warren1001.d2data.enums.D2UniqueItems
+import io.github.warren1001.d2data.enums.sheet.D2UniqueItems
 
 class Unique(items: Items, names: Map<String, String>, rowIndex: Int, uniqueItems: D2Sheet, private val baseItem: Item?):
 	Item(

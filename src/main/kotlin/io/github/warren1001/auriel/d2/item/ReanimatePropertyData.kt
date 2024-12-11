@@ -1,13 +1,14 @@
 package io.github.warren1001.auriel.d2.item
 
 import io.github.warren1001.d2data.D2Sheet
-import io.github.warren1001.d2data.enums.D2MonStats
+import io.github.warren1001.d2data.enums.sheet.D2MonStats
+import io.github.warren1001.d2data.lang.LangString
 
 open class ReanimatePropertyData(protected val monStats: D2Sheet, val items: Items,
                               propertyCode: String, variable: Any, range: IntRange, template: TemplateStrings, priority: Int):
 	SimpleVarPropertyData(propertyCode, variable, range, template, priority) {
 	
-	override fun format(): LangStrings {
+	override fun format(): LangString {
 		val template = getTemplate().insert(1, getMonsterNames())
 		return when (template.argumentCount) {
 			1 -> template.format(range.getAsString())
@@ -21,7 +22,7 @@ open class ReanimatePropertyData(protected val monStats: D2Sheet, val items: Ite
 		} else {
 			getMonsterNamesStr(variable.toString())
 		}
-		return TemplateStrings(name, items.monsters[name]!!)
+		return TemplateStrings(name, items.monsters[name].getStrings())
 	}
 	
 	private fun getMonsterNamesStr(index: Int) = monStats[index.toString(), D2MonStats.HC_IDX, D2MonStats.NAME_STR]

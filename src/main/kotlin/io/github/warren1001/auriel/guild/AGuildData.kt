@@ -10,6 +10,7 @@ data class AGuildData(val _id: String, val configData: MutableMap<String, Any>) 
 	val wordFilters = mutableSetOf<WordFilter>()
 	val spamFilters = mutableSetOf<SpamFilter>()
 	val vouchBlacklist = mutableSetOf<String>()
+	val privateChannelData = mutableMapOf<String, PrivateChannelData>()
 	var youtubeData: YoutubeData = YoutubeData()
 	var nextVouchId = 0L
 	

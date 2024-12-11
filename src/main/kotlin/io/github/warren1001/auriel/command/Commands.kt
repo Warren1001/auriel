@@ -8,15 +8,12 @@ import dev.minn.jda.ktx.messages.MessageEdit
 import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.Auriel
 import io.github.warren1001.auriel.a
-import io.github.warren1001.auriel.d2.D2
-import io.github.warren1001.auriel.d2.tz.TerrorZone
+import io.github.warren1001.auriel.d2.tz.TerrorZoneInfo
 import io.github.warren1001.auriel.guild.ConfigError
 import io.github.warren1001.auriel.queue_
 import io.github.warren1001.auriel.replyFull
-import io.github.warren1001.auriel.user.Users
-import io.github.warren1001.d2data.enums.json.D2DesecratedZones
+import io.github.warren1001.d2data.D2Lang
 import net.dv8tion.jda.api.EmbedBuilder
-import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.User
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
@@ -24,7 +21,6 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.interactions.components.ActionRow
 import net.dv8tion.jda.api.interactions.components.buttons.Button
 import java.awt.Color
-import java.io.File
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
@@ -134,43 +130,49 @@ class Commands(private val auriel: Auriel) {
 		}
 		auriel.autoCompletionHandler.setAutocompleteStrings("activity", option = "type", "playing", "competing", "listening", "watching", "streaming", "clear")*/
 		commandActions["tz"] = {
-			val msg = it.getOption("message", "%ROLE% **%ZONE%** is/are Terrorized!") { it.asString }
-			// intellij will tell you its okay to remove the type arguments, its not okay!! program wont compile if its missing (module error)
-			auriel.specialMessageHandler.replyChainMessageCallback<String, Role?> {
-				userId = it.user.id
-				values = D2.files.loadJson(D2DesecratedZones.FILE_PATH)["desecrated_zones"][0]["zones"].asIterable().map {
-					it["levels"].asIterable().map { it["level_id"].asInt() }.toList().joinToString(",")
+			//val msg = it.getOption("message", "%ROLE% **%ZONE%** is/are Terrorized!") { it.asString }
+			if (it.subcommandName == "start") {
+				it.guild!!.a().startTZ(it)
+			} else {
+				val lang = it.guild!!.a().data.getAsString("guild:tz-language")
+				// intellij will tell you its okay to remove the type arguments, its not okay!! program wont compile if its missing (module error)
+				auriel.specialMessageHandler.replyChainMessageCallback<TerrorZoneInfo, Role?> {
+					userId = it.user.id
+					values = auriel.guilds.tzTracker.tzInfos
+					format = "What role do you want to use for the Terror Zone **%s**?"
+					finishMsg = "Done setting up roles!"
+					validationMessage = "**You must provide a valid role in the form of a role mention as if you were tagging the role. Try again.**"
+					parse = { _, message -> message.mentions.roles.firstOrNull() }
+					display = { it.string.get(lang) }
+					createMessage = { messageCreateData, callback -> it.reply_(messageCreateData.content).queue_ { callback.invoke(it) } }
+					finished = { data -> auriel.guilds.getGuild(it.guild!!.id).setupTZ(data) }
 				}
-				format = "What role do you want to use for the Terror Zone **%s**?"
-				finishMsg = "Done setting up roles!"
-				validationMessage = "**You must provide a valid role in the form of a role mention as if you were tagging the role. Try again.**"
-				parse = { _, message -> message.mentions.roles.firstOrNull() }
-				display = { it.split(',') }
-				createMessage = { messageCreateData, callback -> it.reply_(messageCreateData.content).queue_ { callback.invoke(it) } }
-				finished = { data -> auriel.guilds.getGuild(it.guild!!.id).setupTZ(it.channel.id, msg, data) }
 			}
+			//val levels = D2.files.loadSheet(D2Levels.FILE_PATH)
+			
 		}
 		commandActions["tznotify"] = {
 			val guild = it.guild!!.a()
 			if (guild.tzGuildData.roleIds == null) {
 				it.reply_("This feature has not been setup yet.").queue_()
 			} else {
+				val tzInfos = auriel.guilds.tzTracker.tzInfos
 				val roleIds = guild.tzGuildData.roleIds!!
-				val roleIdsList: List<Map.Entry<String, String>> = roleIds.entries.toList()
-				val roleIdsByAct: List<MutableList<Map.Entry<String, String>>> = listOf(mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf())
-				roleIdsList.forEach { roleIdsByAct[it.key.act - 1].add(it) }
+				val roleIdsList: List<Map.Entry<Int, String>> = roleIds.entries.toList()
+				val roleIdsByAct: List<MutableList<Map.Entry<Int, String>>> = listOf(mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf())
+				roleIdsList.forEach { roleIdsByAct[tzInfos[it.key - 1].act - 1].add(it) }
 				var randId = 0
-				
-				val messageCreateData = auriel.specialMessageHandler.replyMultiSelectMenuMessage<MutableList<Map.Entry<String, String>>> {
+				val lang = guild.data.getAsString("guild:tz-language")
+				val messageCreateData = auriel.specialMessageHandler.replyMultiSelectMenuMessage<MutableList<Map.Entry<Int, String>>> {
 					userId = it.user.id
 					values = roleIdsByAct
 					format = "What role do you want to use for the Terror Zones in **%s**?"
 					finishMsg = "You will now receive notifications for the selected TZs."
 					onlyOne = false
 					mustChoose = false
-					filter = { list, i -> (list[0].key.act - 1) == i }
-					optionConverter = { tz -> tz.map { SelectOption(it.key.zoneName, "${it.value}-${randId++}") } }
-					display = { list -> "Act ${list[0].key.act}" }
+					filter = { list, i -> (tzInfos[list[0].key - 1].act - 1) == i }
+					optionConverter = { tz -> tz.map { SelectOption(tzInfos[it.key - 1].string.get(lang), "${it.value}-${randId++}") } }
+					display = { list -> "Act ${tzInfos[list[0].key - 1].act}" }
 					finished = { data ->
 						val addRoles = data.map { it.value }.flatten().map { if (it.contains("-")) it.substringBefore("-") else it }.map { auriel.jda.getRoleById(it)!! }.toSet()
 						val removeRoles = roleIds.values.map { auriel.jda.getRoleById(it)!! }.toSet() - addRoles
@@ -225,15 +227,22 @@ class Commands(private val auriel: Auriel) {
 		auriel.autoCompletionHandler.addAutocompleteStrings("timer", "start", option = "name", "message-age", "youtube")
 		auriel.autoCompletionHandler.addAutocompleteStrings("timer", "stop", option = "name", "message-age", "youtube")
 		commandActions["clone"] = {
+			println("called")
 			val guild = it.guild!!.a()
+			println("called 1")
 			if (it.subcommandName == "start") {
+				println("called 2")
 				if (guild.cloneHandler.isRunning()) {
 					it.reply_("The Diablo Clone system is already running.").queue_()
 				} else {
+					println("called 3")
 					val helpee = it.getOption("helpee-channel")!!.asChannel.asGuildMessageChannel()
 					val helper = it.getOption("helper-channel")!!.asChannel.asGuildMessageChannel()
+					println("called 4")
 					guild.cloneHandler.start(helpee, helper)
-					it.reply_("Started the Diablo Clone system with the helpee message in ${helpee.asMention} and the helper message in ${helper.asMention}.").queue_()
+					println("called 5")
+					it.reply_("Started the Diablo Clone system with the helpee message in ${helpee.asMention} and the helper message in ${helper.asMention}.").queue()
+					println("called 6")
 				}
 			} else {
 				guild.cloneHandler.stop()
@@ -242,17 +251,17 @@ class Commands(private val auriel: Auriel) {
 		}
 		auriel.jda.updateCommands {
 			slash("ping", "Pong!") { restrict(true) }
-			slash("stop", "Stops the bot. Only use if the bot is doing extremely bad things to the server.") { restrict(true, Permission.ADMINISTRATOR) }
+			slash("stop", "Stops the bot. Only use if the bot is doing extremely bad things to the server.") { restrict(true) }
 			// config command
 			slash("rolegivemsg", "Send a message with the ability to give a user a role.") {
-				restrict(true, Permission.BAN_MEMBERS)
+				restrict(true)
 				option<String>("message", "The message to send.", required = true)
 				option<Role>("role", "The role to give.", required = true)
 				option<String>("give-button-text", "The text on the give role button.", required = true)
 				option<String>("remove-button-text", "The text on the remove role button.", required = true)
 			}
 			slash("addfilter", "Add a word filter to the server or this specific channel.") {
-				restrict(true, Permission.BAN_MEMBERS)
+				restrict(true)
 				subcommand("server", "Add a word filter to the server.") {
 					option<String>("name", "An identifying name for the filter, this should be the word/phrase that is being filtered.", required = true)
 					option<String>("expression", "The expression to filter, regular expression by default.", required = true)
@@ -269,7 +278,7 @@ class Commands(private val auriel: Auriel) {
 				}
 			}
 			slash("removefilter", "Remove a word filter from the server or this specific channel.") {
-				restrict(true, Permission.BAN_MEMBERS)
+				restrict(true)
 				subcommand("server", "Remove a word filter from the server.") {
 					option<String>("name", "The name of the filter to remove.", required = true)
 				}
@@ -278,7 +287,7 @@ class Commands(private val auriel: Auriel) {
 				}
 			}
 			slash("listfilter", "List all word filters for the server or this specific channel.") {
-				restrict(true, Permission.BAN_MEMBERS)
+				restrict(true)
 				subcommand("server", "List all word filters for the server.")
 				subcommand("channel", "List all word filters for this channel.")
 			}
@@ -289,16 +298,17 @@ class Commands(private val auriel: Auriel) {
 				option<String>("url", "The URL of the stream.")
 			}*/
 			slash("tz", "Sets up Terror Zone notifications in this channel + roles.") {
-				restrict(true, Permission.MANAGE_SERVER)
-				option<String>("message", "TZ announce msg. %ROLE% and %ZONE% are the fill names", required = false)
+				restrict(true)
+				subcommand("configure", "Configure the TZ role notifications.")
+				subcommand("start", "Start the TZ announcer.")
 			}
 			slash("tzrolebutton", "Choose the areas you want to be notified for.") {
-				restrict(true, Permission.BAN_MEMBERS)
+				restrict(true)
 				option<String>("message", "The message to use with the button.", required = true)
 				option<String>("button", "The text on the button itself.", required = true)
 			}
 			slash("config", "Configuration options for the server.") {
-				restrict(true, Permission.BAN_MEMBERS)
+				restrict(true)
 				subcommand("string", "Set a string configuration option.") {
 					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
 					option<String>("value", "The value of the configuration option.", required = true)
@@ -322,7 +332,7 @@ class Commands(private val auriel: Auriel) {
 				}
 			}
 			slash("timer", "Start and stop specific timers.") {
-				restrict(true, Permission.BAN_MEMBERS)
+				restrict(true)
 				subcommand("start", "Start a timer.") {
 					option<String>("name", "The name of the timer to start.", required = true, autocomplete = true)
 				}
@@ -331,7 +341,7 @@ class Commands(private val auriel: Auriel) {
 				}
 			}
 			slash("clone", "Start or stop the DClone system.") {
-				restrict(true, Permission.BAN_MEMBERS)
+				restrict(true)
 				subcommand("start", "Start the DClone system.") {
 					option<GuildMessageChannel>("helpee-channel", "The channel to post the Request Help message.", required = true)
 					option<GuildMessageChannel>("helper-channel", "The channel to post the Give Help message.", required = true)
@@ -349,16 +359,16 @@ class Commands(private val auriel: Auriel) {
 				option<Boolean>("hide", "Hide the response of this command (so people won't see you're checking their vouches).", required = false)
 			}
 			slash("removevouch", "Remove a user's vouch.") {
-				restrict(true, Permission.BAN_MEMBERS)
+				restrict(true)
 				option<User>("user", "The user whose vouch you want to remove.", required = true)
 				option<Long>("id", "The id of the vouch you're removing.", required = true)
 			}
 			slash("blacklistvouch", "Prevent a user from using the /vouch command.") {
-				restrict(true, Permission.MANAGE_SERVER)
+				restrict(true)
 				option<User>("user", "The user you want to blacklist from using the /vouch command.", required = true)
 			}
 			slash("spam", "Add or remove a spam bot filter.") {
-				restrict(true, Permission.BAN_MEMBERS)
+				restrict(true)
 				subcommand("add", "Add a spam bot filter.") {
 					option<String>("name", "The name of the filter.", required = true)
 					option<String>("regex", "The regex to use for the filter. Leaving empty will use chat box for multi-line (AND) support.", required = false)
@@ -371,7 +381,7 @@ class Commands(private val auriel: Auriel) {
 				subcommand("list", "List all spam bot filters.")
 			}
 			slash("user", "Configuration options for the users of this server.") {
-				restrict(true, Permission.BAN_MEMBERS)
+				restrict(true)
 				subcommand("string", "Set a string user configuration option.") {
 					option<String>("key", "The key of the configuration option.", required = true, autocomplete = true)
 					option<String>("value", "The value of the configuration option.", required = true)
@@ -427,11 +437,11 @@ class Commands(private val auriel: Auriel) {
 				it.reply(MessageCreate(embeds = listOf(item.createEmbed(it.member!!.a().data.getAsString("user:language"))))).queue_()
 			}
 		}
-		auriel.autoCompletionHandler.addAutocompleteStrings("language", option = "language", Users.LANGUAGES)
+		auriel.autoCompletionHandler.addAutocompleteStrings("language", option = "language", D2Lang.LANGUAGES)
 		commandActions["language"] = {
 			val language = it.getOption("language")!!.asString
-			if (!Users.LANGUAGES.contains(language)) {
-				it.reply_("Unsupported language. Supported languages are: ${Users.LANGUAGES.joinToString(", ")}").queue_()
+			if (!D2Lang.LANGUAGES.contains(language)) {
+				it.reply_("Unsupported language. Supported languages are: ${D2Lang.LANGUAGES.joinToString(", ")}").queue_()
 			} else {
 				val user = it.member!!.a()
 				user.data.set("user:language", language)
@@ -447,6 +457,7 @@ class Commands(private val auriel: Auriel) {
 					"string" -> {
 						val value = it.getOption("value")!!.asString
 						success = auriel.config.modifyConfigValue(it.member!!, origKey) {
+							this.event = it
 							this.guild = it.guild!!
 							this.channel = it.channel.asGuildMessageChannel()
 							this.author = it.user
@@ -520,6 +531,7 @@ class Commands(private val auriel: Auriel) {
 				ConfigError.NO_PERMISSION -> {
 					it.reply_("You do not have permission to set this option.").queue_()
 				}
+				ConfigError.CUSTOM -> {}
 			}
 		}
 		commandActions["blacklistvouch"] = {
@@ -579,7 +591,7 @@ class Commands(private val auriel: Auriel) {
 				aUser.saveData()
 				it.reply_("Removed the vouch.").queue_()
 			} else {
-				it.reply_("${user.user.asTag} does not have a vouch with that ID.").queue_()
+				it.reply_("${user.user.name} does not have a vouch with that ID.").queue_()
 			}
 		}
 		commandActions["vouch"] = {
@@ -608,12 +620,12 @@ class Commands(private val auriel: Auriel) {
 				it.reply_("That user has no vouches.").queue_()
 			} else {
 				val embed = EmbedBuilder()
-					.setTitle("${totalVouches.size} vouches for ${user.user.asTag}")
+					.setTitle("${totalVouches.size} vouches for ${user.user.name}")
 					.setDescription("Showing the last 5 vouches:")
 					.setColor(Color.GREEN)
 					.setTimestamp(Instant.now())
 				for (vouch in vouches) {
-					val voucher = vouch.vouchedBy.let { auriel.jda.getUserById(it) }?.asTag ?: "Unknown User (${vouch.vouchedBy})"
+					val voucher = vouch.vouchedBy.let { auriel.jda.getUserById(it) }?.name ?: "Unknown User (${vouch.vouchedBy})"
 					embed.addField(voucher, "(${vouch.id}) - ${vouch.reason}", false)
 				}
 				if (hide) {
@@ -631,6 +643,7 @@ class Commands(private val auriel: Auriel) {
 					"string" -> {
 						val value = it.getOption("value")!!.asString
 						success = auriel.config.modifyConfigValue(it.member!!, origKey) {
+							this.event = it
 							this.guild = it.guild!!
 							this.channel = it.channel.asGuildMessageChannel()
 							this.author = it.user
@@ -642,6 +655,7 @@ class Commands(private val auriel: Auriel) {
 						if (success == ConfigError.NONE) {
 							auriel.specialMessageHandler.replySingleMessage(it, "Respond with the value you'd like to set $origKey to.") { value ->
 								val success2 = auriel.config.modifyConfigValue(it.member!!, origKey) {
+									this.event = it
 									this.guild = it.guild!!
 									this.channel = it.channel.asGuildMessageChannel()
 									this.author = it.user
@@ -661,6 +675,7 @@ class Commands(private val auriel: Auriel) {
 					"channel" -> {
 						val value = it.channel.asGuildMessageChannel()
 						success = auriel.config.modifyConfigValue(it.member!!, origKey) {
+							this.event = it
 							this.guild = it.guild!!
 							this.channel = it.channel.asGuildMessageChannel()
 							this.author = it.user
@@ -670,6 +685,7 @@ class Commands(private val auriel: Auriel) {
 					"number" -> {
 						val value = it.getOption("value")!!.asLong
 						success = auriel.config.modifyConfigValue(it.member!!, origKey) {
+							this.event = it
 							this.guild = it.guild!!
 							this.channel = it.channel.asGuildMessageChannel()
 							this.author = it.user
@@ -679,6 +695,7 @@ class Commands(private val auriel: Auriel) {
 					"boolean" -> {
 						val value = it.getOption("value")!!.asBoolean
 						success = auriel.config.modifyConfigValue(it.member!!, origKey) {
+							this.event = it
 							this.guild = it.guild!!
 							this.channel = it.channel.asGuildMessageChannel()
 							this.author = it.user
@@ -704,6 +721,7 @@ class Commands(private val auriel: Auriel) {
 				ConfigError.NO_PERMISSION -> {
 					it.reply_("You do not have permission to set this option.").queue_()
 				}
+				ConfigError.CUSTOM -> {}
 			}
 		}
 	}

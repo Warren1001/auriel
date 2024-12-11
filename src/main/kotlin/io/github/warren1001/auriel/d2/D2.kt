@@ -7,7 +7,7 @@ class D2 {
 	
 	companion object {
 		
-		val files = D2Files(File("d2"))
+		val files = D2Files(File("data"))
 		
 	}
 	

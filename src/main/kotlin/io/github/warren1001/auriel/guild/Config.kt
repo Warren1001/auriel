@@ -1,8 +1,10 @@
 package io.github.warren1001.auriel.guild
 
+import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.Auriel
 import io.github.warren1001.auriel.a
 import io.github.warren1001.auriel.isWarren
+import io.github.warren1001.d2data.D2Lang
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Member
 
@@ -110,13 +112,15 @@ class Config(private val auriel: Auriel) {
 		if (configData.permission == Permission.ADMINISTRATOR && !member.isWarren()) return ConfigError.NOT_FOUND
 		if (!member.hasPermission(configData.permission)) return ConfigError.NO_PERMISSION
 		
-		val configContext = ConfigContext(auriel, configContextBuilder.guild!!, configContextBuilder.channel!!,
+		val configContext = ConfigContext(auriel, configContextBuilder.event!!, configContextBuilder.guild!!, configContextBuilder.channel!!,
 			configContextBuilder.author!!, configContextBuilder.value!!)
+		
 		if (configData.modifyValue.invoke(configContext, key)) {
 			configData.valueChanged.invoke(configContext)
 			configData.saveChanges.invoke(configContext)
+			return ConfigError.NONE
 		}
-		return ConfigError.NONE
+		return ConfigError.CUSTOM
 	}
 	
 	fun hasKey(key: String) = configData.containsKey(key)
@@ -153,35 +157,105 @@ class Config(private val auriel: Auriel) {
 			}
 		}
 		createGuildConfigData {
-			key = "clone:helpee-request-button"
+			key = "guild:clone:helpee-edit-button"
+			permission = Permission.BAN_MEMBERS
+			description = "The text on the button for a user editing their Diablo Clone submission."
+			defaultValue = "Edit Submission"
+			allowedTypes(ConfigDataType.STRING)
+		}
+		createGuildConfigData {
+			key = "guild:clone:helpee-scam-button"
+			permission = Permission.BAN_MEMBERS
+			description = "The text on the button for a user reporting their Annilius being stolen."
+			defaultValue = "Helper Scammed Me"
+			allowedTypes(ConfigDataType.STRING)
+		}
+		createGuildConfigData {
+			key = "guild:clone:helpee-vouch-button"
+			permission = Permission.BAN_MEMBERS
+			description = "The text on the button for a user vouching their helper for Diablo Clone kill."
+			defaultValue = "Vouch"
+			allowedTypes(ConfigDataType.STRING)
+		}
+		createGuildConfigData {
+			key = "guild:clone:request-help-button"
 			permission = Permission.BAN_MEMBERS
 			description = "The text on the button for a user requesting help with Diablo Clone."
 			defaultValue = "I need help w/ DClone"
 			allowedTypes(ConfigDataType.STRING)
 		}
 		createGuildConfigData {
-			key = "clone:helpee-cancel-button"
+			key = "guild:clone:helpee-cancel-button"
 			permission = Permission.BAN_MEMBERS
 			description = "The text on the button for a user cancelling their help request with Diablo Clone."
 			defaultValue = "I no longer need help"
 			allowedTypes(ConfigDataType.STRING)
 		}
 		createGuildConfigData {
-			key = "clone:helper-begin-button"
+			key = "guild:clone:helper-begin-button"
 			permission = Permission.BAN_MEMBERS
 			description = "The text on the button for a user giving help with Diablo Clone."
 			defaultValue = "Begin helping"
 			allowedTypes(ConfigDataType.STRING)
 		}
 		createGuildConfigData {
-			key = "clone:helper-mention-button"
+			key = "guild:clone:helper-next-button"
 			permission = Permission.BAN_MEMBERS
-			description = "The text on the button for a user getting the user mention of the user they are helping with Diablo Clone."
-			defaultValue = "Get mention"
+			description = "The text on the button for a helper helping the next person."
+			defaultValue = "Next"
 			allowedTypes(ConfigDataType.STRING)
 		}
 		createGuildConfigData {
-			key = "clone:helpee-message"
+			key = "guild:clone:helper-done-button"
+			permission = Permission.BAN_MEMBERS
+			description = "The text on the button for a helper finishing helping."
+			defaultValue = "Done"
+			allowedTypes(ConfigDataType.STRING)
+		}
+		createGuildConfigData {
+			key = "guild:clone:afk-kill"
+			permission = Permission.BAN_MEMBERS
+			description = "The text on the helper error menu for killing the Clone of an AFK player."
+			defaultValue = "Player is AFK and I killed their Clone"
+			allowedTypes(ConfigDataType.STRING)
+		}
+		createGuildConfigData {
+			key = "guild:clone:afk-nokill"
+			permission = Permission.BAN_MEMBERS
+			description = "The text on the helper error menu for an AFK player."
+			defaultValue = "Player is AFK and I did NOT kill their Clone"
+			allowedTypes(ConfigDataType.STRING)
+		}
+		createGuildConfigData {
+			key = "guild:clone:alr-done"
+			permission = Permission.BAN_MEMBERS
+			description = "The text on the helper error menu for the game being empty or Clone was killed already."
+			defaultValue = "Game was empty or Clone was already dead"
+			allowedTypes(ConfigDataType.STRING)
+		}
+		createGuildConfigData {
+			key = "guild:clone:game-dne"
+			permission = Permission.BAN_MEMBERS
+			description = "The text on the helper error menu for the game not existing."
+			defaultValue = "Game does not exist"
+			allowedTypes(ConfigDataType.STRING)
+		}
+		createGuildConfigData {
+			key = "guild:clone:game-lr"
+			permission = Permission.BAN_MEMBERS
+			description = "The text on the helper error menu for the game having a level restriction."
+			defaultValue = "I do not meet the level restrictions"
+			allowedTypes(ConfigDataType.STRING)
+		}
+		createGuildConfigData {
+			key = "guild:clone:game-pc"
+			permission = Permission.BAN_MEMBERS
+			description = "The text on the helper error menu for the game being full."
+			defaultValue = "Game is full"
+			allowedTypes(ConfigDataType.STRING)
+		}
+		createGuildConfigData {
+			key = "guild:clone:helpee-message"
 			permission = Permission.BAN_MEMBERS
 			description = "The text on the bot post containing the buttons for where users request help with Diablo Clone.\n" +
 					"Available placeholders:\n" +
@@ -202,7 +276,7 @@ class Config(private val auriel: Auriel) {
 			allowedTypes(ConfigDataType.STRING)
 		}
 		createGuildConfigData {
-			key = "clone:helper-message"
+			key = "guild:clone:helper-message"
 			permission = Permission.BAN_MEMBERS
 			description = "The text on the bot post containing the button for where users give help with Diablo Clone.\n" +
 					"Available placeholders:\n" +
@@ -239,24 +313,52 @@ class Config(private val auriel: Auriel) {
 			saveChanges = { auriel.guilds.tzTracker.saveData() }
 		}
 		createGuildConfigData {
-			key = "tz:language"
+			key = "guild:tz-language"
 			permission = Permission.MANAGE_SERVER
 			description = "The language to use for the Terror Zone tracker."
 			defaultValue = "enUS"
 			allowedTypes(ConfigDataType.STRING)
+			modifyValue = { context, key ->
+				val language = context.getAsString()
+				if (!D2Lang.LANGUAGES.contains(language)) {
+					context.event.reply_("Unsupported language. Supported languages are: ${D2Lang.LANGUAGES.joinToString(", ")}")
+					false
+				} else {
+					ConfigDataBuilder.GUILD_MODIFY_VALUE(context, key)
+				}
+			}
 		}
 		createGuildConfigData {
-			key = "tz:online"
+			key = "guild:tz-tracker-online"
 			permission = Permission.MANAGE_SERVER
 			description = "The message to send when the automated Terror Zone tracker comes back online."
 			defaultValue = "The Terror Zone tracker is back online!"
 			allowedTypes(ConfigDataType.STRING)
 		}
 		createGuildConfigData {
-			key = "tz:offline"
+			key = "guild:tz-tracker-offline"
 			permission = Permission.MANAGE_SERVER
 			description = "The message to send when the automated Terror Zone tracker goes offline."
 			defaultValue = "The Terror Zone tracker is offline!"
+			allowedTypes(ConfigDataType.STRING)
+		}
+		createGuildConfigData {
+			key = "guild:tz-channel"
+			permission = Permission.MANAGE_SERVER
+			description = "The ID of the channel to send Terror Zone tracker messages to."
+			allowedTypes(ConfigDataType.CHANNEL)
+		}
+		createGuildConfigData {
+			key = "guild:tz-template"
+			permission = Permission.MANAGE_SERVER
+			description = "The message to send when the automated Terror Zone tracker updates.\n" +
+					"Available placeholders:\n" +
+					"  - %CROLE% - The Discord Role mention for the current Terror Zone.\n" +
+					"  - %CZONE% - The current Terror Zone." +
+					"  - %NROLE% - The Discord Role mention for the next Terror Zone.\n" +
+					"  - %NZONE% - The next Terror Zone."
+			defaultValue = "__Current__: **%CZONE%** %CROLE%\n" +
+					"__Next__: **%NZONE%** %NROLE%"
 			allowedTypes(ConfigDataType.STRING)
 		}
 		createChannelConfigData {

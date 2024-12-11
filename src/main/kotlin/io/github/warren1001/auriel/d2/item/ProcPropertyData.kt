@@ -1,7 +1,7 @@
 package io.github.warren1001.auriel.d2.item
 
 import io.github.warren1001.d2data.D2Sheet
-import io.github.warren1001.d2data.enums.D2Skills
+import io.github.warren1001.d2data.enums.sheet.D2Skills
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min

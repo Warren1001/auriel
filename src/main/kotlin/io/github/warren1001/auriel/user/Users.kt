@@ -13,10 +13,4 @@ class Users(private val auriel: Auriel, val guild: AGuild) {
 	
 	fun forEachUser(action: (AUser) -> Unit) = users.values.forEach(action)
 	
-	companion object {
-		
-		val LANGUAGES = listOf("enUS", "esES", "esMX", "frFR", "deDE", "itIT", "jaJP", "plPL", "ptBR", "ruRU", "koKR", "zhTW")
-		
-	}
-	
 }

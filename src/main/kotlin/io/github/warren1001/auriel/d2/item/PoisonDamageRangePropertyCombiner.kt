@@ -4,7 +4,7 @@ import kotlin.math.max
 
 class PoisonDamageRangePropertyCombiner(private val propertyCode: String, items: Items) : PropertyListTransformer {
 	
-	private val combinedTemplate = TemplateStrings("strModPoisonDamage", items.itemModifiers["strModPoisonDamage"]!!)
+	private val combinedTemplate = TemplateStrings("strModPoisonDamage", items.itemModifiers["strModPoisonDamage"].getStrings())
 	
 	override fun contains(propertyCodes: Collection<PropertyData>) = propertyCodes.any { it.getPropertyCode() == "pois-min" }
 			&& propertyCodes.any { it.getPropertyCode() == "pois-max" }
