@@ -18,7 +18,7 @@ class ChainMessage<T, U>(private val data: MutableMap<T, U>, private val values:
 	
 	fun handleMessageReceived(event: MessageReceivedEvent): Boolean {
 		val parsed = parse.invoke(values[index], event.message)
-		event.message.delete().queue_()
+		event.message.delete().queue()
 		if (parsed == null) {
 			originalMessage!!.editMessage(content = "$validationMessage\n\n${format.format(display.invoke(values[index]))}").queue_()
 			return false

@@ -39,7 +39,7 @@ class AUser {
 	
 	fun giveVouch(member: Member, reason: String): Boolean {
 		val giver = member.a()
-		val vouchCooldown = guild.data.getAsNumber("guild:vouch-cooldown").toLong()
+		val vouchCooldown = guild.data.getAsNumber("guild:vouch-cooldown")!!.toLong()
 		if (!member.hasPermission(Permission.BAN_MEMBERS) && System.currentTimeMillis() - giver.data.lastVouch < vouchCooldown * 1000) return false
 		data.vouches.add(Vouch(guild.data.nextVouchId++, giver.id, reason, System.currentTimeMillis()))
 		giver.data.lastVouch = System.currentTimeMillis()

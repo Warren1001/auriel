@@ -50,21 +50,26 @@ class ButtonInteractionHandler(private val auriel: Auriel) {
 			} else {
 				val tzInfos = auriel.guilds.tzTracker.tzInfos
 				val roleIds = guild.tzGuildData.roleIds!!
-				val roleIdsList: List<Map.Entry<Int, String>> = roleIds.entries.toList()
-				val roleIdsByAct: List<MutableList<Map.Entry<Int, String>>> = listOf(mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf())
-				roleIdsList.forEach { roleIdsByAct[tzInfos[it.key - 1].act - 1].add(it) }
+				val roleIdsList: List<Map.Entry<String, String>> = roleIds.entries.toList()
+				val roleIdsByAct: List<MutableList<Map.Entry<String, String>>> = listOf(mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf())
+				roleIdsList.forEach { roleIdsByAct[it.key[3].toString().toInt() - 1].add(it) }
 				var randId = 0
-				
-				val messageCreateData = auriel.specialMessageHandler.replyMultiSelectMenuMessage<MutableList<Map.Entry<Int, String>>> {
+				val messageCreateData = auriel.specialMessageHandler.replyMultiSelectMenuMessage<MutableList<Map.Entry<String, String>>> {
 					userId = event.user.id
 					values = roleIdsByAct
 					format = "What role do you want to use for the Terror Zones in **%s**?"
 					finishMsg = "You will now receive notifications for the selected TZs."
 					onlyOne = false
 					mustChoose = false
-					filter = { list, i -> (tzInfos[list[0].key - 1].act - 1) == i }
-					optionConverter = { tz -> tz.map { SelectOption(tzInfos[it.key - 1].string.get(guild.data.getAsString("guild:tz-language")), "${it.value}-${randId++}") } }
-					display = { list -> "Act ${tzInfos[list[0].key - 1].act}" }
+					filter = { list, i -> (list[0].key[3].toString().toInt() - 1) == i }
+					optionConverter = { tz ->
+						tz.map {
+							var display = tzInfos[it.key]!!.string.get(guild.data.getAsString("guild:tz-language")!!)
+							if (display.length > 100) display = display.substring(0, 100)
+							SelectOption(display, "${it.value}-${randId++}")
+						}
+					}
+					display = { list -> "Act ${list[0].key[3].toString().toInt()}" }
 					finished = { data ->
 						val addRoles = data.map { it.value }.flatten().map { if (it.contains("-")) it.substringBefore("-") else it }.map { auriel.jda.getRoleById(it)!! }.toSet()
 						val removeRoles = roleIds.values.map { auriel.jda.getRoleById(it)!! }.toSet() - addRoles

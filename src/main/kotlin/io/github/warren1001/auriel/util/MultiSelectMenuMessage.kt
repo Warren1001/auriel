@@ -22,7 +22,7 @@ class MultiSelectMenuMessage<T>(private val id: String, private val data: Mutabl
 		data[values[index]] = if (chosen.any { it == "none" }) emptyList() else chosen
 		index++
 		if (index < values.size) {
-			val options = values.filter { filter.invoke(it, index) }.map { optionConverter.invoke(it) }.flatten().toMutableList()
+			val options = values.filter { filter.invoke(it, index) }.flatMap { optionConverter.invoke(it) }.toMutableList()
 			if (!mustChoose) options.add(0, SelectOption("None", "none"))
 			event.editMessage_(format.format(display.invoke(values[index])), components = listOf(ActionRow.of(
 				StringSelectMenu("$id-$index") {

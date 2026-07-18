@@ -1,12 +1,12 @@
 package io.github.warren1001.auriel.d2.item
 
-import io.github.warren1001.d2data.D2Sheet
 import io.github.warren1001.d2data.enums.sheet.D2SkillDesc
 import io.github.warren1001.d2data.enums.sheet.D2Skills
+import io.github.warren1001.d2data.file.D2Sheet
 import io.github.warren1001.d2data.lang.LangString
 
 open class OSkillPropertyData(protected val skills: D2Sheet, protected val skillDesc: D2Sheet, val items: Items, protected var skillIndex: Int = 0,
-                             propertyCode: String, variable: Any, range: IntRange, template: TemplateStrings, priority: Int):
+                              propertyCode: String, variable: Any, range: IntRange, template: TemplateStrings, priority: Int):
 	SimpleVarPropertyData(propertyCode, variable, range, template, priority) {
 	
 	override fun format(): LangString {

@@ -12,11 +12,12 @@ data class ConfigData(val key: String, val description: String, val permission: 
 	
 	fun isAllowedType(value: Any) = allowedTypes.any { it.isType(value) }
 	
-	fun prettyPrint(): String {
+	fun prettyPrint(currentValue: Any?): String {
 		return "**$key**\n" +
+				"Current value: $currentValue\n" +
 				"Description: $description\n" +
 				"Permission: ${permission.name}\n" +
-				"Allowed Types: ${allowedTypes.map { it.configSubCommands }.flatten().joinToString { ", " }}\n" +
+				"Allowed Types: ${allowedTypes.flatMap { it.configSubCommands }.joinToString(", ")}\n" +
 				"Default Value: $defaultValue"
 	}
 

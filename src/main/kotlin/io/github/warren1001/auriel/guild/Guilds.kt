@@ -25,6 +25,12 @@ class Guilds(val auriel: Auriel, emuToken: String) {
 
 	init {
 		guildDataCollection.find().forEach { guilds[it._id] = AGuild(auriel, it._id, this, it) }
+		/*auriel.jda.guilds.filter { !guilds.contains(it.id) }.forEach {
+			if (it.id != "111552314887696384") {
+				println("Left guild ${it.id}")
+				it.leave().queue()
+			}
+		}*/
 		auriel.jda.guilds.filter { !guilds.contains(it.id) }.map { AGuild(auriel, it.id, this) }.forEach { guilds[it.id] = it }
 		
 		var data = tzTrackerCollection.findOneById("default")
@@ -33,11 +39,12 @@ class Guilds(val auriel: Auriel, emuToken: String) {
 			tzTrackerCollection.insertOne(data)
 		}
 		tzTracker = TerrorZoneTracker(this, data, emuToken)
+		//println("We are in a total of ${guilds.size} server(s)!")
 	}
 	
 	fun handleMessageReceived(event: MessageReceivedEvent): Boolean {
 		if (!event.channelType.isGuild) return false
-		if (tzTracker.handle(event)) return false
+		//if (tzTracker.handle(event)) return false
 		if (event.author.isBot) {
 			if (event.author.id == auriel.jda.selfUser.id && event.channelType == ChannelType.NEWS) {
 				event.message.crosspost().queue_()

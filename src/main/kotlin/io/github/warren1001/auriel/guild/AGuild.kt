@@ -11,7 +11,6 @@ import io.github.warren1001.auriel.channel.text.AGuildMessageChannelData
 import io.github.warren1001.auriel.d2.clone.CloneHandler
 import io.github.warren1001.auriel.d2.tz.TerrorZoneInfo
 import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerGuildData
-import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerStatus
 import io.github.warren1001.auriel.user.Users
 import io.github.warren1001.auriel.util.filter.SpamFilter
 import io.github.warren1001.auriel.util.filter.WordFilter
@@ -49,7 +48,7 @@ class AGuild {
 	val privateChannelManager: PrivateChannelManager
 	
 	private val guildMessageChannels = mutableMapOf<String, AGuildMessageChannel>()
-	private var lastTZAnnouncement: Message? = null
+	//private var lastTZAnnouncement: Message? = null
 	
 	constructor(auriel: Auriel, id: String, guilds: Guilds) {
 		this.auriel = auriel
@@ -127,7 +126,7 @@ class AGuild {
 		
 		if (!author.hasPermission(Permission.BAN_MEMBERS)) {
 			
-			var message = event.message.contentRaw
+			val message = event.message.contentRaw
 			
 			// spam filters
 			val triggeredSpamFilters = data.spamFilters.filter { it.containsMatchIn(message) }
@@ -141,26 +140,13 @@ class AGuild {
 			}
 			
 			// swear filters
-			val swearFilters = data.wordFilters.filter { it.containsMatchIn(message) }
-			if (swearFilters.isNotEmpty()) {
-				val swearWords = swearFilters.joinToString(", ") { it.name }
-				event.message.delete().queue_()
-				var repostId: Long? = null
-				if (swearFilters.all { it.shouldReplace() } && aChannel.allowsReposting()) {
-					swearFilters.forEach { message = it.replace(message) }
-					repostId = event.channel.message("${event.author.asMention} said (censored): ${message.replace("@everyone", "@ everyone").replace("@here", "@ here")}").complete().idLong
-				} else {
-					event.author.dm("Your message was deleted from ${event.channel.asMention} in **${event.guild.name}** because it contained the following blocked phrase(s): **$swearWords**\n" +
-							"Here's your message incase you didn't save it:")
-					event.author.dm(message.quote())
-				}
-				logMessageDelete(author, event.channel.asGuildMessageChannel(), "Swearing: $swearWords", event.message.contentRaw, repostId)
+			if (aChannel.applyWordFilters(event, message, data.wordFilters)) {
 				return true
 			}
 			
 		}
 		
-		if (event.channelType == ChannelType.NEWS && data.getAsBoolean("guild:crosspost")) event.message.crosspost().queue_()
+		if (event.channelType == ChannelType.NEWS && data.getAsBoolean("guild:crosspost") == true) event.message.crosspost().queue_()
 		
 		return aChannel.handleMessageReceived(event)
 		
@@ -243,22 +229,29 @@ class AGuild {
 		return removed
 	}
 	
-	fun onTerrorZoneChange(deleteLast: Boolean, currentTerrorZoneInfo: TerrorZoneInfo, nextTerrorZoneInfo: TerrorZoneInfo? = null) {
-		if (deleteLast) lastTZAnnouncement?.delete()?.queueDelete()
+	fun onTerrorZoneChange(currentTerrorZoneInfo: TerrorZoneInfo, nextTerrorZoneInfo: TerrorZoneInfo? = null) {
+		//if (deleteLast) lastTZAnnouncement?.delete()?.queueDelete()
 		//println("terror zone changed...")
-		auriel.jda.getChannelById(GuildMessageChannel::class.java, data.getAsString("guild:tz-channel"))!!
-			.message(data.getAsString("guild:tz-template")
-				.replace("%CROLE%", tzGuildData.roleMentions!![currentTerrorZoneInfo.id]!!)
-				.replace("%CZONE%", currentTerrorZoneInfo.string.get(data.getAsString("guild:tz-language")))
-				.replace("%NROLE%", if (nextTerrorZoneInfo != null) tzGuildData.roleMentions!![nextTerrorZoneInfo.id]!! else "")
-				.replace("%NZONE%", nextTerrorZoneInfo?.string?.get(data.getAsString("guild:tz-language")) ?: "Unknown")
+		if (!data.has("guild:tz-channel") || !data.has("guild:tz-language") || !data.has("guild:tz-template")) {
+			//auriel.warren("Guild of id $id does not have guild:tz-channel value")
+			return
+		}
+		val channelId = data.getAsString("guild:tz-channel")!!
+		val lang = data.getAsString("guild:tz-language")!!
+		val template = data.getAsString("guild:tz-template")!!
+		auriel.jda.getChannelById(GuildMessageChannel::class.java, channelId)!!
+			.message(template
+				.replace("%CROLE%", tzGuildData.roleMentions?.get(currentTerrorZoneInfo.id) ?: "")
+				.replace("%CZONE%", currentTerrorZoneInfo.string.get(lang))
+				.replace("%NROLE%", if (nextTerrorZoneInfo != null) tzGuildData.roleMentions?.get(nextTerrorZoneInfo.id) ?: "" else "")
+				.replace("%NZONE%", nextTerrorZoneInfo?.string?.get(lang) ?: "Unknown")
 			)
-			.queue_ { lastTZAnnouncement = it }
+			.queue_()
 	}
 	
-	fun terrorZoneTrackerUpdate(status: TerrorZoneTrackerStatus) {
+	/*fun terrorZoneTrackerUpdate(status: TerrorZoneTrackerStatus) {
 		val msg = if (status == TerrorZoneTrackerStatus.ONLINE) data.getAsString("guild:tz-tracker-online") else data.getAsString("guild:tz-tracker-offline")
 		auriel.jda.getChannelById(GuildMessageChannel::class.java, data.getAsString("guild:tz-channel"))!!.message(msg).queue_()
-	}
+	}*/
 	
 }

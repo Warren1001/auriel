@@ -1,11 +1,11 @@
 package io.github.warren1001.auriel.d2.item
 
-import io.github.warren1001.d2data.D2Sheet
 import io.github.warren1001.d2data.enums.sheet.D2MonStats
+import io.github.warren1001.d2data.file.D2Sheet
 import io.github.warren1001.d2data.lang.LangString
 
 open class ReanimatePropertyData(protected val monStats: D2Sheet, val items: Items,
-                              propertyCode: String, variable: Any, range: IntRange, template: TemplateStrings, priority: Int):
+                                 propertyCode: String, variable: Any, range: IntRange, template: TemplateStrings, priority: Int):
 	SimpleVarPropertyData(propertyCode, variable, range, template, priority) {
 	
 	override fun format(): LangString {

@@ -1,9 +1,9 @@
 package io.github.warren1001.auriel.d2.item
 
 import dev.minn.jda.ktx.messages.Embed
-import io.github.warren1001.d2data.D2Sheet
 import io.github.warren1001.d2data.enums.sheet.D2ItemTypes
 import io.github.warren1001.d2data.enums.sheet.D2Weapons
+import io.github.warren1001.d2data.file.D2Sheet
 import io.github.warren1001.d2data.lang.LangString
 
 class Weapon(items: Items, names: Map<String, String>, rowIndex: Int, weapons: D2Sheet, itemTypes: D2Sheet):

@@ -70,49 +70,49 @@ class CloneHandler(private val auriel: Auriel, private val guild: AGuild) {
 	fun start(helpeeChannel: GuildMessageChannel, helperChannel: GuildMessageChannel) {
 		println("clone 0")
 		helpeeStartButton = listOf(ActionRow.of(
-			Button.primary("clone:helpee-request", guild.data.getAsString("guild:clone:request-help-button")),
+			Button.primary("clone:helpee-request", guild.data.getAsString("guild:clone:request-help-button")!!),
 			//Button.danger("clone:helpee-cancel", guild.data.getAsString("guild:clone:helpee-cancel-button"))
 		))
 		helpeeMessageButtons = listOf(ActionRow.of(
-			Button.primary("clone:${guild.id}:helpee-edit", guild.data.getAsString("guild:clone:helpee-edit-button")),
-			Button.danger("clone:${guild.id}:helpee-cancel", guild.data.getAsString("guild:clone:helpee-cancel-button"))
+			Button.primary("clone:${guild.id}:helpee-edit", guild.data.getAsString("guild:clone:helpee-edit-button")!!),
+			Button.danger("clone:${guild.id}:helpee-cancel", guild.data.getAsString("guild:clone:helpee-cancel-button")!!)
 		))
 		helpeeScamButton = listOf(ActionRow.of(
-			Button.danger("clone:${guild.id}:helpee-scam", guild.data.getAsString("guild:clone:helpee-scam-button"))
+			Button.danger("clone:${guild.id}:helpee-scam", guild.data.getAsString("guild:clone:helpee-scam-button")!!)
 		))
 		helpeeVouchButton = listOf(ActionRow.of(
-			Button.success("clone:${guild.id}:helpee-vouch", guild.data.getAsString("guild:clone:helpee-vouch-button"))
+			Button.success("clone:${guild.id}:helpee-vouch", guild.data.getAsString("guild:clone:helpee-vouch-button")!!)
 		))
 		helperStartButton = listOf(ActionRow.of(
-			Button.primary("clone:helper-begin", guild.data.getAsString("guild:clone:helper-begin-button")),
+			Button.primary("clone:helper-begin", guild.data.getAsString("guild:clone:helper-begin-button")!!),
 			//Button.primary("clone:helper-mention", guild.data.getAsString("guild:clone:helper-mention-button")),
 		))
 		helperMessageButtons = listOf(
 			ActionRow.of(
-				Button.primary("clone:${guild.id}:helper-next", guild.data.getAsString("guild:clone:helper-next-button")),
-				Button.danger("clone:${guild.id}:helper-done", guild.data.getAsString("guild:clone:helper-done-button"))
+				Button.primary("clone:${guild.id}:helper-next", guild.data.getAsString("guild:clone:helper-next-button")!!),
+				Button.danger("clone:${guild.id}:helper-done", guild.data.getAsString("guild:clone:helper-done-button")!!)
 			),
 			ActionRow.of(
 				StringSelectMenu("clone:${guild.id}:helper-error", "Error") {
 					setRequiredRange(1, 1)
-					option(guild.data.getAsString("guild:clone:afk-kill"), "clone:afk-kill")
-					option(guild.data.getAsString("guild:clone:afk-nokill"), "clone:afk-nokill")
-					option(guild.data.getAsString("guild:clone:alr-done"), "clone:alr-done")
-					option(guild.data.getAsString("guild:clone:game-dne"), "clone:game-dne")
-					option(guild.data.getAsString("guild:clone:game-lr"), "clone:game-lr")
-					option(guild.data.getAsString("guild:clone:game-pc"), "clone:game-pc")
+					option(guild.data.getAsString("guild:clone:afk-kill")!!, "clone:afk-kill")
+					option(guild.data.getAsString("guild:clone:afk-nokill")!!, "clone:afk-nokill")
+					option(guild.data.getAsString("guild:clone:alr-done")!!, "clone:alr-done")
+					option(guild.data.getAsString("guild:clone:game-dne")!!, "clone:game-dne")
+					option(guild.data.getAsString("guild:clone:game-lr")!!, "clone:game-lr")
+					option(guild.data.getAsString("guild:clone:game-pc")!!, "clone:game-pc")
 					//option(guild.data.getAsString("guild:clone:other"), "clone:other") TODO
 				}
 			)
 		)
 		println("clone 1")
-		if (guild.data.has("guild:fallback-channel")) fallbackChannelMention = helpeeChannel.guild.getTextChannelById(guild.data.getAsString("guild:fallback-channel"))!!.asMention
+		if (guild.data.has("guild:fallback-channel")) fallbackChannelMention = helpeeChannel.guild.getTextChannelById(guild.data.getAsString("guild:fallback-channel")!!)!!.asMention
 		println("clone 2")
 		helpeeMessage = auriel.specialMessageHandler.sendPinMessage(1, helpeeChannel,
-			guild.data.getAsString("guild:clone:helpee-message").replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()),
+			guild.data.getAsString("guild:clone:helpee-message")!!.replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()),
 			helpeeStartButton!!)
 		helperMessage = auriel.specialMessageHandler.sendPinMessage(1, helperChannel,
-			guild.data.getAsString("guild:clone:helper-message").replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()),
+			guild.data.getAsString("guild:clone:helper-message")!!.replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()),
 			helperStartButton!!)
 		println("clone 3")
 		
@@ -350,8 +350,8 @@ class CloneHandler(private val auriel: Auriel, private val guild: AGuild) {
 	}
 	
 	private fun updateMessages() {
-		helpeeMessage?.editContent(guild.data.getAsString("clone:helpee-message").replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()))
-		helperMessage?.editContent(guild.data.getAsString("clone:helper-message").replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()))
+		helpeeMessage?.editContent(guild.data.getAsString("clone:helpee-message")!!.replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()))
+		helperMessage?.editContent(guild.data.getAsString("clone:helper-message")!!.replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()))
 	}
 	
 	fun failedHelp(event: ComponentInteraction, reason: String) {

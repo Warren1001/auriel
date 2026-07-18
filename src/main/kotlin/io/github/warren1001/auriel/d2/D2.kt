@@ -1,6 +1,6 @@
 package io.github.warren1001.auriel.d2
 
-import io.github.warren1001.d2data.D2Files
+import io.github.warren1001.d2data.file.D2Files
 import java.io.File
 
 class D2 {

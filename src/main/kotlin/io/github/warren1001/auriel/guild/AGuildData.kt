@@ -15,7 +15,7 @@ data class AGuildData(val _id: String, val configData: MutableMap<String, Any>) 
 	var nextVouchId = 0L
 	
 	fun set(key: String, value: Any): Boolean {
-		if (configData[key] == value) return false
+		//if (configData[key] == value) return false
 		configData[key] = value
 		return true
 	}
@@ -32,8 +32,8 @@ data class AGuildData(val _id: String, val configData: MutableMap<String, Any>) 
 	
 	fun has(key: String) = configData.containsKey(key)
 	fun get(key: String) = configData[key]
-	fun getAsString(key: String) = get(key) as String
-	fun getAsNumber(key: String) = get(key) as Number
-	fun getAsBoolean(key: String) = get(key) as Boolean
+	fun getAsString(key: String) = get(key) as String?
+	fun getAsNumber(key: String) = get(key) as Number?
+	fun getAsBoolean(key: String) = get(key) as Boolean?
 	
 }

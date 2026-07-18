@@ -17,7 +17,7 @@ class PrivateChannelManager(private val guild: AGuild) {
 
 	fun createPrivateChannel(creator: Member, otherUsers: List<Member>, reason: String, tagAll: Boolean, callback: (TextChannel) -> Unit = {}): Boolean {
 		if (!guild.data.has("guild:private-channel-category")) return false
-		guild.jda().getCategoryById(guild.data.getAsString("guild:private-channel-category"))!!.createTextChannel(creator.id).queue_ { channel ->
+		guild.jda().getCategoryById(guild.data.getAsString("guild:private-channel-category")!!)!!.createTextChannel(creator.id).queue_ { channel ->
 			channel.upsertPermissionOverride(creator).grant(Permission.VIEW_CHANNEL).queue_()
 			otherUsers.forEach { channel.upsertPermissionOverride(it).grant(Permission.VIEW_CHANNEL).queue_() }
 			val mentionsString = if (tagAll) "@here" else otherUsers.joinToString(" ") { it.asMention }

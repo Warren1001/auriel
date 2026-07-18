@@ -12,7 +12,7 @@ import io.github.warren1001.auriel.d2.tz.TerrorZoneInfo
 import io.github.warren1001.auriel.guild.ConfigError
 import io.github.warren1001.auriel.queue_
 import io.github.warren1001.auriel.replyFull
-import io.github.warren1001.d2data.D2Lang
+import io.github.warren1001.d2data.file.D2Lang
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.User
@@ -134,11 +134,12 @@ class Commands(private val auriel: Auriel) {
 			if (it.subcommandName == "start") {
 				it.guild!!.a().startTZ(it)
 			} else {
-				val lang = it.guild!!.a().data.getAsString("guild:tz-language")
+				//println("${auriel.guilds.tzTracker.tzInfos}")
+				val lang = it.guild!!.a().data.getAsString("guild:tz-language")!!
 				// intellij will tell you its okay to remove the type arguments, its not okay!! program wont compile if its missing (module error)
 				auriel.specialMessageHandler.replyChainMessageCallback<TerrorZoneInfo, Role?> {
 					userId = it.user.id
-					values = auriel.guilds.tzTracker.tzInfos
+					values = auriel.guilds.tzTracker.tzInfos.values.toList()
 					format = "What role do you want to use for the Terror Zone **%s**?"
 					finishMsg = "Done setting up roles!"
 					validationMessage = "**You must provide a valid role in the form of a role mention as if you were tagging the role. Try again.**"
@@ -158,21 +159,21 @@ class Commands(private val auriel: Auriel) {
 			} else {
 				val tzInfos = auriel.guilds.tzTracker.tzInfos
 				val roleIds = guild.tzGuildData.roleIds!!
-				val roleIdsList: List<Map.Entry<Int, String>> = roleIds.entries.toList()
-				val roleIdsByAct: List<MutableList<Map.Entry<Int, String>>> = listOf(mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf())
-				roleIdsList.forEach { roleIdsByAct[tzInfos[it.key - 1].act - 1].add(it) }
+				val roleIdsList: List<Map.Entry<String, String>> = roleIds.entries.toList()
+				val roleIdsByAct: List<MutableList<Map.Entry<String, String>>> = listOf(mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf())
+				roleIdsList.forEach { roleIdsByAct[it.key[3].code - 1].add(it) }
 				var randId = 0
-				val lang = guild.data.getAsString("guild:tz-language")
-				val messageCreateData = auriel.specialMessageHandler.replyMultiSelectMenuMessage<MutableList<Map.Entry<Int, String>>> {
+				val lang = guild.data.getAsString("guild:tz-language")!!
+				val messageCreateData = auriel.specialMessageHandler.replyMultiSelectMenuMessage<MutableList<Map.Entry<String, String>>> {
 					userId = it.user.id
 					values = roleIdsByAct
 					format = "What role do you want to use for the Terror Zones in **%s**?"
 					finishMsg = "You will now receive notifications for the selected TZs."
 					onlyOne = false
 					mustChoose = false
-					filter = { list, i -> (tzInfos[list[0].key - 1].act - 1) == i }
-					optionConverter = { tz -> tz.map { SelectOption(tzInfos[it.key - 1].string.get(lang), "${it.value}-${randId++}") } }
-					display = { list -> "Act ${tzInfos[list[0].key - 1].act}" }
+					filter = { list, i -> (list[0].key[3].code - 1) == i }
+					optionConverter = { tz -> tz.map { SelectOption(tzInfos[it.key]!!.string.get(lang), "${it.value}-${randId++}") } }
+					display = { list -> "Act ${list[0].key[3].code}" }
 					finished = { data ->
 						val addRoles = data.map { it.value }.flatten().map { if (it.contains("-")) it.substringBefore("-") else it }.map { auriel.jda.getRoleById(it)!! }.toSet()
 						val removeRoles = roleIds.values.map { auriel.jda.getRoleById(it)!! }.toSet() - addRoles
@@ -248,6 +249,27 @@ class Commands(private val auriel: Auriel) {
 				guild.cloneHandler.stop()
 				it.reply_("Stopped the Diablo Clone system if it was running.").queue_()
 			}
+		}
+		commandActions["pin"] = {
+			val channel = it.channel.asGuildMessageChannel()
+			if (it.subcommandName == "create") {
+				if (auriel.specialMessageHandler.hasPinMessage(channel)) {
+					it.reply_("This channel already has a pinned message. Use `/pin delete` to remove it.", ephemeral = true).queue_()
+				} else {
+					val content = it.getOption("content")!!.asString
+					val repostAfter = it.getOption("repost-after")!!.asInt
+					auriel.specialMessageHandler.sendPinMessage(repostAfter, channel, content)
+					it.reply_("Successfully created pinned message!").queue_()
+				}
+			} else if (it.subcommandName == "delete") {
+				if (!auriel.specialMessageHandler.hasPinMessage(channel)) {
+					it.reply_("This channel does not have a pinned message.", ephemeral = true).queue_()
+				} else {
+					auriel.specialMessageHandler.deletePinMessage(channel)
+					it.reply_("Successfully deleted the pinned message.", ephemeral = true).queue_()
+				}
+			}
+			
 		}
 		auriel.jda.updateCommands {
 			slash("ping", "Pong!") { restrict(true) }
@@ -416,6 +438,14 @@ class Commands(private val auriel: Auriel) {
 				restrict(true)
 				option<String>("item", "The name of the unique item to get information about.", required = true, autocomplete = true)
 			}
+			slash("pin", "Pin a message to this channel") {
+				restrict(true)
+				subcommand("create", "Create a pinned message in this channel.") {
+					option<String>("content", "The content of the pinned message.", required = true)
+					option<Int>("every", "Repost every x messages.", required = true)
+				}
+				subcommand("delete", "Delete a pinned message.")
+			}
 		}.queue_()
 		auriel.autoCompletionHandler.addAutocompleteStrings("unique", "item") { member -> auriel.items.getAllUniqueItems(member.a().data.getAsString("user:language")) }
 		commandActions["unique"] = {
@@ -437,11 +467,11 @@ class Commands(private val auriel: Auriel) {
 				it.reply(MessageCreate(embeds = listOf(item.createEmbed(it.member!!.a().data.getAsString("user:language"))))).queue_()
 			}
 		}
-		auriel.autoCompletionHandler.addAutocompleteStrings("language", option = "language", D2Lang.LANGUAGES)
+		auriel.autoCompletionHandler.addAutocompleteStrings("language", option = "language", D2Lang.LANGUAGES.values)
 		commandActions["language"] = {
 			val language = it.getOption("language")!!.asString
 			if (!D2Lang.LANGUAGES.contains(language)) {
-				it.reply_("Unsupported language. Supported languages are: ${D2Lang.LANGUAGES.joinToString(", ")}").queue_()
+				it.reply_("Unsupported language. Supported languages are: ${D2Lang.LANGUAGES.values.joinToString(", ")}").queue_()
 			} else {
 				val user = it.member!!.a()
 				user.data.set("user:language", language)
@@ -606,7 +636,7 @@ class Commands(private val auriel: Auriel) {
 					if (user.a().giveVouch(it.member!!, reason)) {
 						it.reply("${it.user.asMention} has given ${user.asMention} a vouch for: **$reason**.").queue_()
 					} else {
-						it.reply_("You must wait ${it.guild!!.a().data.getAsNumber("guild:vouch-cooldown").toLong()} seconds between vouches.").queue_()
+						it.reply_("You must wait ${it.guild!!.a().data.getAsNumber("guild:vouch-cooldown")!!.toLong()} seconds between vouches.").queue_()
 					}
 				}
 			}

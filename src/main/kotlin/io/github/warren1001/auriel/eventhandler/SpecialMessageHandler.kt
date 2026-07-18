@@ -87,10 +87,19 @@ class SpecialMessageHandler(private val auriel: Auriel) {
 		message.createInitialReplyCallback(build.createMessage!!)
 	}
 	
-	fun sendPinMessage(repostAfter: Int, channel: GuildMessageChannel, content: String, components: Collection<LayoutComponent>): PinMessage {
+	fun hasPinMessage(channel: GuildMessageChannel): Boolean {
+		return pinMessages.contains(channel.id)
+	}
+	
+	fun sendPinMessage(repostAfter: Int, channel: GuildMessageChannel, content: String, components: Collection<LayoutComponent> = emptyList()): PinMessage {
 		val message = PinMessage(repostAfter, channel, content, components)
 		pinMessages[channel.id] = message
 		return message
+	}
+	
+	fun deletePinMessage(channel: GuildMessageChannel) {
+		val message = pinMessages.remove(channel.id)
+		message?.delete()
 	}
 	
 	fun deletePinMessage(message: PinMessage) {

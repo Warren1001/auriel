@@ -182,7 +182,7 @@ class Items {
 		}
 		val uniqueItems = D2.files.loadSheet(D2UniqueItems.FILE_PATH)
 		uniqueItems.forEach {
-			if (uniqueItems.asInt(it, D2UniqueItems.ENABLED, 0) == 0) return@forEach
+			if (uniqueItems.asInt(it, D2UniqueItems.SPAWNABLE, 0) == 0) return@forEach
 			val index = uniqueItems[it, D2UniqueItems.INDEX]
 			val code = uniqueItems[it, D2UniqueItems.CODE]
 			val names = itemNames[index].getStrings()

@@ -7,13 +7,11 @@ import io.github.warren1001.auriel.guild.Guilds
 import io.github.warren1001.d2data.enums.json.D2DesecratedZones
 import io.github.warren1001.d2data.enums.sheet.D2LevelGroups
 import io.github.warren1001.d2data.enums.sheet.D2Levels
-import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import org.litote.kmongo.updateOne
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
-import java.time.LocalDateTime
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -22,13 +20,14 @@ class TerrorZoneTracker(private val guilds: Guilds, val data: TerrorZoneTrackerD
 	private val client: HttpClient = HttpClient.newHttpClient()
 	private val request: HttpRequest = HttpRequest.newBuilder().header("x-emu-username", "warren1001").header("x-emu-token", emuToken).uri(URI.create("https://www.d2emu.com/api/v1/tz")).build()
 	private val executors: ExecutorService = Executors.newSingleThreadExecutor()
-	val tzInfos: List<TerrorZoneInfo>
+	val tzInfos: Map<String, TerrorZoneInfo>
 	
 	private var running = true
-	private var automatedOffline = false
-	private var previousTerrorZoneInfo: TerrorZoneInfo?
+	//private var automatedOffline = false
+	//private var previousTerrorZoneInfo: TerrorZoneInfo?
 	
 	private var attempt = 0
+	private var sameNotified = false
 	
 	init {
 		val tz = D2.files.loadJson(D2DesecratedZones.FILE_PATH)
@@ -36,42 +35,48 @@ class TerrorZoneTracker(private val guilds: Guilds, val data: TerrorZoneTrackerD
 		val levelGroups = D2.files.loadSheet(D2LevelGroups.FILE_PATH)
 		val levelsLang = D2.files.loadLang(io.github.warren1001.d2data.enums.lang.D2Levels.FILE_PATH)
 		tzInfos = tz.root["desecrated_zones"][0]["zones"].asIterable().map {
-			val id = it["id"].asInt()
+			val id = it["id"].asText()
 			val zoneIds = it["levels"].asIterable().map { it["level_id"].asInt() }.toList()
-			var act = -1
-			val strings = zoneIds.map {
-				if (act == -1) act = levels[it.toString(), D2Levels.ID, D2Levels.ACT].toInt() + 1
+			val strings = zoneIds.filter { it != 0 }.map {
 				val levelGroup = levels[it.toString(), D2Levels.ID, D2Levels.LEVEL_GROUP]
-				val groupName = levelGroups[levelGroup, D2LevelGroups.GROUP_NAME]
+				val groupName = levelGroups[levelGroup, D2LevelGroups.NAME_STRING]
+				if (groupName == "") {
+					println("GroupName was empty.. it=$it, groupName=$groupName, levelGroup=$levelGroup")
+				}
 				levelsLang[groupName]
-			}.distinct()//.distinct().joinToString(", ")
+			}.distinct()
 			val string = strings[0].clone()
 			for (i in 1 until strings.size) {
 				string.append(strings[i], ", ")
 			}
-			TerrorZoneInfo(id, act, zoneIds, string)
-		}
+			//println("it=$it")
+			//println("id=$id, zoneIds=$zoneIds, strings=$strings")
+			TerrorZoneInfo(id, zoneIds, string)
+		}.associateBy { it.id }
+		//println("tzInfos: $tzInfos")
 		//println("data.lastZone: ${data.lastZone}")
-		previousTerrorZoneInfo = getInfoFromZoneId(data.lastZone)
+		//previousTerrorZoneInfo = getInfoFromZoneId(data.lastZone)
 		//println("previousTerrorZoneInfo: $previousTerrorZoneInfo")
 	}
 	
 	fun getInfoFromZoneIds(zoneIds: List<Int>): TerrorZoneInfo? {
-		return tzInfos.firstOrNull { it.zoneIds.containsAll(zoneIds) }
-	}
-	
-	fun getInfoFromZoneId(id: Int): TerrorZoneInfo? {
-		return tzInfos.firstOrNull { it.id == id }
+		tzInfos.forEach {
+			//println("Checking if all of $zoneIds can be found in ${it.value.zoneIds}")
+			if (it.value.zoneIds.containsAll(zoneIds)) {
+				return it.value
+			}
+		}
+		return null
 	}
 	
 	fun saveData() = guilds.tzTrackerCollection.updateOne(data, options = UpdateOptions().upsert(true))
 	
-	fun setChannel(id: String, save: Boolean = true): Boolean {
+	/*fun setChannel(id: String, save: Boolean = true): Boolean {
 		if (data.senderChannelId == id) return false
 		data.senderChannelId = id
 		if (save) saveData()
 		return true
-	}
+	}*/
 	
 	fun addGuild(id: String) {
 		data.guilds.add(id)
@@ -83,122 +88,89 @@ class TerrorZoneTracker(private val guilds: Guilds, val data: TerrorZoneTrackerD
 		saveData()
 	}
 	
-	fun handle(event: MessageReceivedEvent): Boolean {
-		return false
-		/*if (event.channel.id != data.senderChannelId) return false
-		val content = event.message.contentRaw
-		if (!content.startsWith("{")) return false
-		
-		val json = ObjectMapper().readTree(content)
-		
-		val tzInfo = getInfoFromZoneIds(json["zoneIds"].elements().asSequence().map { it.asInt() }.toList())
-		//val zone = TerrorZone.valueOf(json["zone"].asText())
-		val trust = json["trust"].asInt()
-		
-		if (tzInfo == null) {
-			event.channel.sendMessage("Invalid TZ info:\n$content").queue()
-			return true
-		}
-		
-		//println("Received TZ info from manual: $tzInfo, $trust")
-		
-		synchronized(guilds) {
-			//println("updating in sync..")
-			newInfo(trust, tzInfo)
-			//println("finishing in sync..")
-		}
-		
-		return true*/
-	}
-	
-	/*fun getTimeToSleep(): Long {
-		val now = LocalDateTime.now()
-		val nextNormalAttempt = 1000L * ((60 - now.minute) * 60 - now.second + 10)
-		if (attempt < 3) {
-			return min(1000L * 5, nextNormalAttempt)
-		}
-		if (attempt < 8) {
-			return min(1000L * 30, nextNormalAttempt)
-		}
-		if (attempt < 10) {
-			return min(1000L * 60, nextNormalAttempt)
-		}
-		if (attempt < 15) {
-			return min(1000L * 60 * 5, nextNormalAttempt)
-		}
-		attempt = 0
-		return nextNormalAttempt
-	}*/
-	
 	fun startTracker() {
 		executors.execute {
 			running = true
 			while (running) {
-				//println("checking for tz..")
 				try {
 					val doc = client.send(request, HttpResponse.BodyHandlers.ofString())
 					val text = doc.body()
+					//println(text)
 					val node = ObjectMapper().readTree(text)
-					
 					if (node.has("current")) {
 						val currentZones = node["current"].elements().asSequence().map { it.asInt() }.toList()
 						val nextZones = node["next"].elements().asSequence().map { it.asInt() }.toList()
-						val nextUpdate : Long = node["next_terror_time_utc"].asLong() * 1000
-						//println("nextUpdate: $nextUpdate, current: ${System.currentTimeMillis()}, diff=${nextUpdate - System.currentTimeMillis()}")
+						val nextTerrorTime = node["next_terror_time_utc"].asLong() * 1000
+						val delay = (node["delay"].asInt() + 3 + 5) * 1000
+						val nextUpdate = nextTerrorTime + delay//(node["next_available_time_utc"].asLong() + 3) * 1000
 						val currentTerrorZoneInfo = getInfoFromZoneIds(currentZones)
 						val nextTerrorZoneInfo = getInfoFromZoneIds(nextZones)
 						if (currentTerrorZoneInfo == null) {
 							attempt = 0
 							guilds.auriel.warren("Invalid current TZ info:\n$text")
-							Thread.sleep(nextUpdate - System.currentTimeMillis())
+							val sleep = nextUpdate - System.currentTimeMillis()
+							if (sleep > 0) {
+								Thread.sleep(sleep)
+							} else {
+								attempt++
+							}
 							continue
 						} else if (nextTerrorZoneInfo == null) {
 							attempt = 0
 							guilds.auriel.warren("Invalid next TZ info:\n$text")
-							Thread.sleep(nextUpdate - System.currentTimeMillis())
+							val sleep = nextUpdate - System.currentTimeMillis()
+							if (sleep > 0) {
+								Thread.sleep(sleep)
+							} else {
+								attempt++
+							}
 							continue
 						} else {
-							//println("previousTerrorZoneInfo: $previousTerrorZoneInfo, currentTerrorZoneInfo: $currentTerrorZoneInfo")
-							if (currentTerrorZoneInfo == previousTerrorZoneInfo) {
+							if (nextTerrorTime <= data.nextTerrorTime) {
 								if (System.currentTimeMillis() < nextUpdate) {
-									attempt = 0
 									Thread.sleep(nextUpdate - System.currentTimeMillis())
+									attempt = 0
 									continue
+								} else if (!sameNotified) {
+									//guilds.auriel.warren("Automation reporting the same or old? data after expected update")
+									sameNotified = true
 								}
-							}
-							else {
-								//println("Received TZ info from automatic: $tzInfo")
+							} else {
+								update(nextTerrorTime, currentTerrorZoneInfo, nextTerrorZoneInfo)
 								attempt = 0
-								//synchronized(guilds) {
-								//println("updating in sync..")
-								newInfo(1000, currentTerrorZoneInfo, nextTerrorZoneInfo)
-								//println("finishing in sync..")
-								//}
-								Thread.sleep(nextUpdate - System.currentTimeMillis())
+								sameNotified = false
+								val sleep = nextUpdate - System.currentTimeMillis()
+								if (sleep > 0) {
+									Thread.sleep(sleep)
+								} else {
+									attempt++
+								}
 								continue
 							}
 						}
 					}
 					attempt++
-					//println("Attempt $attempt: ")
-					if (attempt <= 10) {
-						Thread.sleep(1000 * 1)
-					} else if (attempt <= 15) {
+					if (attempt <= 5) {
 						Thread.sleep(1000 * 5)
-					} else if (attempt <= 20) {
-						Thread.sleep(1000 * 30)
+					} else if (attempt <= 10) {
+						Thread.sleep(1000 * 60)
+					} else if (attempt <= 15) {
+						Thread.sleep(1000 * 60 * 5)
 					} else {
-						if (!automatedOffline) {
+						/*if (!automatedOffline) {
 							automatedOffline = true
 							data.guilds.forEach {
 								guilds.getGuild(it).terrorZoneTrackerUpdate(TerrorZoneTrackerStatus.OFFLINE)
 							}
-						}
-						Thread.sleep(1000 * 60 * 5)
+						}*/
+						Thread.sleep(1000 * 60 * 10)
 					}
+				} catch (_: InterruptedException) {
 				} catch (e: Exception) {
 					guilds.auriel.warren(e.stackTraceToString())
-					Thread.sleep(1000 * 60 * 5)
+					try {
+						Thread.sleep(1000 * 60 * 10)
+					} catch (_: InterruptedException) {}
 				}
 			}
 		}
@@ -209,34 +181,16 @@ class TerrorZoneTracker(private val guilds: Guilds, val data: TerrorZoneTrackerD
 		executors.shutdownNow()
 	}
 	
-	private fun newInfo(trust: Int, currentTerrorZoneInfo: TerrorZoneInfo, nextTerrorZoneInfo: TerrorZoneInfo? = null) {
-		//if (data.lastZone != currentTerrorZoneInfo.id) {
-			//println("zone not the same as the last one, updating..")
-			val minute = getCurrentMinuteIndex()
-			//if (minute == data.lastMinuteIndex && trust > data.lastTrust) {
-				//println("minute is the same as the last one, and trust is higher, updating and deleting wrong one..")
-				//update(trust, minute, true, currentTerrorZoneInfo, nextTerrorZoneInfo)
-			//}
-			//else {
-				//println("minute is not the same as the last one, or trust is lower, updating..")
-				update(trust, minute, false, currentTerrorZoneInfo, nextTerrorZoneInfo)
-			//}
-		//}
-	}
-	
-	private fun update(trust: Int, lastMinuteIndex: Int, deleteOld: Boolean, currentTerrorZoneInfo: TerrorZoneInfo, nextTerrorZoneInfo: TerrorZoneInfo? = null) {
-		if (automatedOffline) {
+	private fun update(nextTerrorTime: Long, currentTerrorZoneInfo: TerrorZoneInfo, nextTerrorZoneInfo: TerrorZoneInfo) {
+		/*if (automatedOffline) {
 			automatedOffline = false
 			data.guilds.forEach { guilds.getGuild(it).terrorZoneTrackerUpdate(TerrorZoneTrackerStatus.ONLINE) }
-		}
-		data.lastZone = currentTerrorZoneInfo.id
-		previousTerrorZoneInfo = currentTerrorZoneInfo
-		data.lastTrust = trust
-		data.lastMinuteIndex = lastMinuteIndex
+		}*/
+		data.nextTerrorTime = nextTerrorTime
+		//previousTerrorZoneInfo = currentTerrorZoneInfo
 		saveData()
-		data.guilds.forEach { guilds.getGuild(it).onTerrorZoneChange(deleteOld, currentTerrorZoneInfo, nextTerrorZoneInfo) }
+		//if (attempt > 0) guilds.auriel.warren("found TZ info after $attempt attempts")
+		data.guilds.forEach { guilds.getGuild(it).onTerrorZoneChange(currentTerrorZoneInfo, nextTerrorZoneInfo) }
 	}
-	
-	private fun getCurrentMinuteIndex() = Math.floorDivExact(LocalDateTime.now().minute + 1, 15)
 	
 }

@@ -129,11 +129,16 @@ class Properties(private val items: Items) {
 	
 	fun getUniquePropertiesString(index: Int): LangString {
 		val uniqueItems = D2.files.loadSheet(D2UniqueItems.FILE_PATH)
+		val propertyGroups = D2.files.loadSheet(D2PropertyGroups.FILE_PATH)
 		val ilvlMin = getMinimumItemLevel(index)
 		val propertyDataList = mutableListOf<PropertyData>()
 		for (i in 1..MAXIMUM_PARAMETER_COUNT) {
 			val prop = uniqueItems[index, "prop$i"]
 			if (prop.isEmpty()) break
+			if (propertyGroups.getRow(prop) != null) {
+				println("Item has new PropertyGroup logic, skipping the PropertyGroup until implemented")
+				continue
+			}
 			if (prop.startsWith('*') || prop == "bloody") continue
 			val par = uniqueItems[index, "par$i"].ifEmpty { if (prop == "dmg-cold") "0" else "" }
 			val min = uniqueItems.asInt(index, "min$i", Int.MIN_VALUE)
@@ -225,6 +230,7 @@ class Properties(private val items: Items) {
 					"ethereal" -> code
 					"dmg-min" -> "mindamage"
 					"dmg-max" -> "maxdamage"
+					//"skilltab-war" -> "skilltab" // TODO dont know if this is right, just guessing
 					else -> properties[code, D2Properties.STAT_1]
 				}
 				val statVal = properties.asInt(code, D2Properties.VAL_1, -1)

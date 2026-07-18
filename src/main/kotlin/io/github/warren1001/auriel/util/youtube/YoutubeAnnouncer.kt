@@ -46,7 +46,7 @@ class YoutubeAnnouncer(private val auriel: Auriel, private val guild: AGuild, pr
 					val video = it.first
 					val videoId = video.id
 					val time = it.second
-					println("videoId: $videoId time: $time")
+					//println("videoId: $videoId time: $time")
 					val title = video.snippet.title
 					updateLastPost(time, videoId)
 					auriel.jda.getChannel<GuildMessageChannel>(data.channelId!!)!!.sendMessage(

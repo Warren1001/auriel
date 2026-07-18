@@ -1,13 +1,13 @@
 package io.github.warren1001.auriel.d2.item
 
-import io.github.warren1001.d2data.D2Sheet
 import io.github.warren1001.d2data.enums.sheet.D2Skills
+import io.github.warren1001.d2data.file.D2Sheet
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 
 open class ProcPropertyData(skills: D2Sheet, skillDesc: D2Sheet, items: Items, skillIndex: Int = 0, protected val ilvlMin: Int,
-                             propertyCode: String, variable: Any, range: IntRange, template: TemplateStrings, priority: Int):
+                            propertyCode: String, variable: Any, range: IntRange, template: TemplateStrings, priority: Int):
 	OSkillPropertyData(skills, skillDesc, items, skillIndex, propertyCode, variable, range, template, priority) {
 	
 	override fun format() = getTemplate().insert(skillIndex, getSkillNames())

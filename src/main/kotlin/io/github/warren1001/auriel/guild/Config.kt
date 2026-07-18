@@ -4,7 +4,7 @@ import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.Auriel
 import io.github.warren1001.auriel.a
 import io.github.warren1001.auriel.isWarren
-import io.github.warren1001.d2data.D2Lang
+import io.github.warren1001.d2data.file.D2Lang
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Member
 
@@ -13,9 +13,10 @@ class Config(private val auriel: Auriel) {
 	private val configData = mutableMapOf<String, ConfigData>()
 	
 	fun prettyPrintConfigData(key: String, requester: Member): String {
+		var guild : AGuild = requester.guild.a()
 		val configData = configData[key] ?: return "That is not a valid key to configure."
 		if (configData.permission == Permission.ADMINISTRATOR && !requester.isWarren()) return "That is not a valid key to configure."
-		return configData.prettyPrint()
+		return configData.prettyPrint(guild.data.get(key))
 	}
 
 	fun createGuildConfigData(builder: ConfigDataBuilder.() -> Unit): ConfigData {
@@ -302,7 +303,7 @@ class Config(private val auriel: Auriel) {
 			description = "The ID of the channel to send messages to if a user cannot be privately messaged."
 			allowedTypes(ConfigDataType.CHANNEL)
 		}
-		createGuildConfigData {
+		/*createGuildConfigData {
 			key = "tz:source"
 			permission = Permission.ADMINISTRATOR
 			description = "" // hide this option
@@ -311,7 +312,7 @@ class Config(private val auriel: Auriel) {
 				auriel.guilds.tzTracker.setChannel(context.getAsChannel().id, false)
 			}
 			saveChanges = { auriel.guilds.tzTracker.saveData() }
-		}
+		}*/
 		createGuildConfigData {
 			key = "guild:tz-language"
 			permission = Permission.MANAGE_SERVER
@@ -320,8 +321,8 @@ class Config(private val auriel: Auriel) {
 			allowedTypes(ConfigDataType.STRING)
 			modifyValue = { context, key ->
 				val language = context.getAsString()
-				if (!D2Lang.LANGUAGES.contains(language)) {
-					context.event.reply_("Unsupported language. Supported languages are: ${D2Lang.LANGUAGES.joinToString(", ")}")
+				if (!D2Lang.LANGUAGES.values.contains(language)) {
+					context.event.reply_("Unsupported language. Supported languages are: ${D2Lang.LANGUAGES.values.joinToString(", ")}")
 					false
 				} else {
 					ConfigDataBuilder.GUILD_MODIFY_VALUE(context, key)

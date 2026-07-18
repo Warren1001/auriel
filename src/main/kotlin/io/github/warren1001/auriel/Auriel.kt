@@ -117,7 +117,7 @@ class Auriel(val jda: JDA, youtubeToken: String, emuToken: String) {
 	
 	fun warren(action: (User) -> Unit) = jda.retrieveUserById("164118147073310721").queue(action)
 	
-	fun warren(msg: String) = warren { it.dm(msg) }
+	fun warren(msg: String) = warren { it.dm(msg).queue() }
 	
 }
 
@@ -128,7 +128,7 @@ fun main(args: Array<String>) {
 	val youtubeToken = args[1]
 	val emuToken = args[2]
 	val jda: JDA = light(discordToken, enableCoroutines = true) {
-		enableIntents(GatewayIntent.values().toList())
+		enableIntents(GatewayIntent.entries)
 		disableCache(CacheFlag.ACTIVITY, CacheFlag.CLIENT_STATUS, CacheFlag.ONLINE_STATUS, CacheFlag.STICKER, CacheFlag.VOICE_STATE)
 		setChunkingFilter(ChunkingFilter.ALL)
 		setMemberCachePolicy(MemberCachePolicy.ALL)
@@ -155,7 +155,7 @@ fun Member.dm(message: String, failure: () -> String? = { "" }, callback: (Messa
 		val modifiedMessage = failure()?.ifEmpty { message }
 		if (modifiedMessage != null) {
 			if (aGuild.data.has("guild:fallback-channel")) {
-				guild.getTextChannelById(aGuild.data.getAsString("guild:fallback-channel"))!!
+				guild.getTextChannelById(aGuild.data.getAsString("guild:fallback-channel")!!)!!
 					.message("*${user.asMention} You have private messages disabled, so I'm forced to message you here:*\n$modifiedMessage").queue_ { callback(it) }
 			} else {
 				aGuild.logDMFailure(this, message)
