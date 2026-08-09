@@ -1,6 +1,8 @@
 package io.github.warren1001.auriel.d2.tz
 
+import com.fasterxml.jackson.core.StreamReadFeature
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.json.JsonMapper
 import com.mongodb.client.model.UpdateOptions
 import io.github.warren1001.auriel.d2.D2
 import io.github.warren1001.auriel.guild.Guilds
@@ -90,13 +92,14 @@ class TerrorZoneTracker(private val guilds: Guilds, val data: TerrorZoneTrackerD
 	
 	fun startTracker() {
 		executors.execute {
+			val mapper: ObjectMapper = JsonMapper.builder().enable(StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION).build()
 			running = true
 			while (running) {
 				try {
 					val doc = client.send(request, HttpResponse.BodyHandlers.ofString())
 					val text = doc.body()
 					//println(text)
-					val node = ObjectMapper().readTree(text)
+					val node = mapper.readTree(text)
 					if (node.has("current")) {
 						val currentZones = node["current"].elements().asSequence().map { it.asInt() }.toList()
 						val nextZones = node["next"].elements().asSequence().map { it.asInt() }.toList()
