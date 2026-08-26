@@ -6,6 +6,7 @@ import io.github.warren1001.auriel.Auriel
 import io.github.warren1001.auriel.guild.AGuild
 import io.github.warren1001.auriel.queue_
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
+import java.net.SocketTimeoutException
 import java.util.*
 import kotlin.concurrent.timer
 
@@ -15,6 +16,7 @@ class YoutubeAnnouncer(private val auriel: Auriel, private val guild: AGuild, pr
 	private val videosRequest = youtube.Videos().list(listOf("snippet"))
 	
 	private var timer: Timer? = null
+	private var timeoutErrors: Int = 0
 	
 	private val alreadyPosted: MutableSet<String> = mutableSetOf()
 	
@@ -30,30 +32,35 @@ class YoutubeAnnouncer(private val auriel: Auriel, private val guild: AGuild, pr
 			playlistItemsRequest.execute().items.filter {
 				//println("publishedAt: ${it.snippet.publishedAt.value} lastUpdate: ${data.lastUpdate}")
 				it.snippet.resourceId.kind == "youtube#video" && it.snippet.publishedAt.value > data.lastUpdate
+			}.map {
+				val realTime = it.snippet.publishedAt.value
+				videosRequest.setId(listOf(it.snippet.resourceId.videoId))
+				Pair(videosRequest.execute().items[0], realTime)
+			}.filter {
+				return@filter if (it.first.snippet.liveBroadcastContent != "none") {
+					if (!alreadyPosted.contains(it.first.id)) alreadyPosted.add(it.first.id)
+					false
+				} else !alreadyPosted.contains(it.first.id)
 			}
-				.map {
-					val realTime = it.snippet.publishedAt.value
-					videosRequest.setId(listOf(it.snippet.resourceId.videoId))
-					Pair(videosRequest.execute().items[0], realTime)
-				}.filter {
-					return@filter if (it.first.snippet.liveBroadcastContent != "none") {
-						if (!alreadyPosted.contains(it.first.id)) alreadyPosted.add(it.first.id)
-						false
-					}
-					else !alreadyPosted.contains(it.first.id)
-				}
-				.sortedWith(Comparator.comparingLong { it.second }).forEach {
-					val video = it.first
-					val videoId = video.id
-					val time = it.second
-					//println("videoId: $videoId time: $time")
-					val title = video.snippet.title
-					updateLastPost(time, videoId)
-					auriel.jda.getChannel<GuildMessageChannel>(data.channelId!!)!!.sendMessage(
-						data.message.replace("%TITLE%", title).replace("%LINK%", "https://www.youtube.com/watch?v=$videoId")
-							.replace("%URL%", "https://www.youtube.com/watch?v=$videoId")
-					).queue_()
-				}
+			.sortedWith(Comparator.comparingLong { it.second }).forEach {
+				val video = it.first
+				val videoId = video.id
+				val time = it.second
+				//println("videoId: $videoId time: $time")
+				val title = video.snippet.title
+				updateLastPost(time, videoId)
+				auriel.jda.getChannel<GuildMessageChannel>(data.channelId!!)!!.sendMessage(
+					data.message.replace("%TITLE%", title).replace("%LINK%", "https://www.youtube.com/watch?v=$videoId")
+						.replace("%URL%", "https://www.youtube.com/watch?v=$videoId")
+				).queue_()
+			}
+			timeoutErrors = 0
+		} catch (_: SocketTimeoutException) {
+			timeoutErrors += 1
+			if (timeoutErrors >= 5) {
+				auriel.warren("Checking for YouTube uploads has timed out 5 consecutive times.")
+				timeoutErrors = 0
+			}
 		} catch (e: Exception) {
 			auriel.warren("Error checking for new uploads: ${e.stackTraceToString()}")
 		}
@@ -88,7 +95,7 @@ class YoutubeAnnouncer(private val auriel: Auriel, private val guild: AGuild, pr
 	fun start(): Boolean {
 		if (timer != null) return true
 		if (data.playListId == null || data.channelId == null) return false
-		timer = timer("ytAnnouncer-${guild.id}", true, 0, 1000 * 60 * 1) { checkForUpload() }
+		timer = timer("ytAnnouncer-${guild.id}", true, 1000 * 5, 1000 * 60 * 1) { checkForUpload() }
 		return true
 	}
 	

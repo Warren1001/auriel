@@ -6,7 +6,7 @@
     
     <artifactId>auriel</artifactId>
     <groupId>io.github.warren1001</groupId>
-    <version>1.2.7</version>
+    <version>1.2.10</version>
     <packaging>jar</packaging>
     
     <name>Auriel</name>
@@ -114,7 +114,7 @@
         <dependency>
             <groupId>net.dv8tion</groupId>
             <artifactId>JDA</artifactId>
-            <version>5.2.1</version>
+            <version>5.2.3</version>
             <exclusions>
                 <exclusion>
                     <groupId>club.minnced</groupId>

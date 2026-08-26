@@ -19,8 +19,8 @@ import java.util.concurrent.Executors
 
 class TerrorZoneTracker(private val guilds: Guilds, val data: TerrorZoneTrackerData, emuToken: String) {
 	
-	private val client: HttpClient = HttpClient.newHttpClient()
-	private val request: HttpRequest = HttpRequest.newBuilder().header("x-emu-username", "warren1001").header("x-emu-token", emuToken).uri(URI.create("https://www.d2emu.com/api/v1/tz")).build()
+	private val client: HttpClient = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build()
+	private val request: HttpRequest = HttpRequest.newBuilder().header("x-emu-username", "warren1001").header("x-emu-token", emuToken).uri(URI.create("https://d2emu.com/api/v1/tz")).build()
 	private val executors: ExecutorService = Executors.newSingleThreadExecutor()
 	val tzInfos: Map<String, TerrorZoneInfo>
 	
