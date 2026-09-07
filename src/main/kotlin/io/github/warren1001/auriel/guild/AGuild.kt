@@ -32,6 +32,7 @@ import org.litote.kmongo.updateOne
 import java.awt.Color
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 
 class AGuild {
 	
@@ -253,18 +254,20 @@ class AGuild {
 		event.guild.retrieveAuditLogs()
 			.type(ActionType.BAN)
 			.limit(5) // slightly higher limit in case of concurrent bans
-			.queue({ logs ->
-				val entry = logs.firstOrNull { it.targetIdLong == banned.idLong }
-				if (entry != null) {
-					val moderator = entry.user
-					val reason = entry.reason
-					logBanReason(banned, moderator, reason)
-				} else {
-					auriel.warren("Tried to get ban reason for user ${banned.asMention} (${banned.name}) but no audit log entry was found for them.")
-				}
-			}, {
-				auriel.warren(it.stackTraceToString())
-			})
+			.queueAfter(
+				1, TimeUnit.SECONDS,
+				{ logs ->
+					val entry = logs.firstOrNull { it.targetIdLong == banned.idLong }
+					if (entry != null) {
+						val moderator = entry.user
+						val reason = entry.reason
+						logBanReason(banned, moderator, reason)
+					} else {
+						auriel.warren("Tried to get ban reason for user ${banned.asMention} (${banned.name}) but no audit log entry was found for them.")
+					}
+				}, {
+					auriel.warren(it.stackTraceToString())
+				})
 	}
 	
 	fun logBanReason(banned: User, by: User?, reason: String?) {

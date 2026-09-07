@@ -4,7 +4,7 @@
   <groupId>io.github.warren1001</groupId>
   <artifactId>auriel</artifactId>
   <name>Auriel</name>
-  <version>1.2.10</version>
+  <version>1.3.1</version>
   <build>
     <sourceDirectory>src/main/kotlin</sourceDirectory>
     <finalName>Auriel</finalName>
