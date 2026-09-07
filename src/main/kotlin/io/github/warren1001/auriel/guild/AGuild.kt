@@ -16,12 +16,10 @@ import io.github.warren1001.auriel.util.filter.SpamFilter
 import io.github.warren1001.auriel.util.filter.WordFilter
 import io.github.warren1001.auriel.util.youtube.YoutubeAnnouncer
 import net.dv8tion.jda.api.Permission
-import net.dv8tion.jda.api.entities.Member
-import net.dv8tion.jda.api.entities.Message
-import net.dv8tion.jda.api.entities.MessageEmbed
-import net.dv8tion.jda.api.entities.Role
+import net.dv8tion.jda.api.entities.*
 import net.dv8tion.jda.api.entities.channel.ChannelType
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
+import net.dv8tion.jda.api.events.guild.GuildBanEvent
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
@@ -247,6 +245,23 @@ class AGuild {
 				.replace("%NZONE%", nextTerrorZoneInfo?.string?.get(lang) ?: "Unknown")
 			)
 			.queue_()
+	}
+	
+	fun handleBan(event: GuildBanEvent) {
+		val banned = event.user
+		event.guild.retrieveBan(banned).queue({
+			logBanReason(banned, it.user, it.reason)
+		}, {
+			auriel.warren(it.stackTraceToString())
+		})
+	}
+	
+	fun logBanReason(banned: User, by: User, reason: String?) {
+		log(Embed(title = "Message Deleted", color = Color.PINK.rgb, timestamp = Instant.now()) {
+			field { name = "User"; value = "${banned.asMention} (${banned.name})"; inline = true }
+			field { name = "Reason"; value = reason ?: "No reason provided"; inline = false }
+			field { name = "By"; value = "${by.asMention} (${by.name})"; inline = true }
+		})
 	}
 	
 	/*fun terrorZoneTrackerUpdate(status: TerrorZoneTrackerStatus) {

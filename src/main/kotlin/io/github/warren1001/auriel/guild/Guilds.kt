@@ -7,6 +7,7 @@ import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerData
 import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerGuildData
 import io.github.warren1001.auriel.queue_
 import net.dv8tion.jda.api.entities.channel.ChannelType
+import net.dv8tion.jda.api.events.guild.GuildBanEvent
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import org.litote.kmongo.findOneById
@@ -63,6 +64,11 @@ class Guilds(val auriel: Auriel, emuToken: String) {
 		if (!event.isFromGuild) return
 		val guild = guilds[event.guild!!.id] ?: return
 		guild.handleSelectMenuInteraction(event)
+	}
+	
+	fun handleBan(event: GuildBanEvent) {
+		val guild = guilds[event.guild.id] ?: return
+		guild.handleBan(event)
 	}
 
 }

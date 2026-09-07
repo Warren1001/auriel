@@ -25,6 +25,7 @@ import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.User
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
+import net.dv8tion.jda.api.events.guild.GuildBanEvent
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
@@ -103,6 +104,13 @@ class Auriel(val jda: JDA, youtubeToken: String, emuToken: String) {
 			try {
 				autoCompletionHandler.onCommandAutoCompleteInteraction(it)
 			} catch(e: Exception) {
+				warren(e.stackTraceToString())
+			}
+		}
+		jda.listener<GuildBanEvent> {
+			try {
+				guilds.handleBan(it)
+			} catch (e: Exception) {
 				warren(e.stackTraceToString())
 			}
 		}
