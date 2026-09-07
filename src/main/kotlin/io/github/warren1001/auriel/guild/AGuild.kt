@@ -253,7 +253,7 @@ class AGuild {
 		event.guild.retrieveAuditLogs()
 			.type(ActionType.BAN)
 			.limit(3) // slightly higher limit in case of concurrent bans
-			.queue({logs ->
+			.queue({ logs ->
 				val entry = logs.firstOrNull { it.targetIdLong == banned.idLong }
 				if (entry != null) {
 					val moderator = entry.user
@@ -265,11 +265,6 @@ class AGuild {
 			}, {
 				auriel.warren(it.stackTraceToString())
 			})
-		event.guild.retrieveBan(banned).queue({
-			logBanReason(banned, it.user, it.reason)
-		}, {
-			auriel.warren(it.stackTraceToString())
-		})
 	}
 	
 	fun logBanReason(banned: User, by: User?, reason: String?) {
