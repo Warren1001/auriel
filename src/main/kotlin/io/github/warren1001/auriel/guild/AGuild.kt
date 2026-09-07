@@ -252,7 +252,7 @@ class AGuild {
 		val banned = event.user
 		event.guild.retrieveAuditLogs()
 			.type(ActionType.BAN)
-			.limit(3) // slightly higher limit in case of concurrent bans
+			.limit(5) // slightly higher limit in case of concurrent bans
 			.queue({ logs ->
 				val entry = logs.firstOrNull { it.targetIdLong == banned.idLong }
 				if (entry != null) {
