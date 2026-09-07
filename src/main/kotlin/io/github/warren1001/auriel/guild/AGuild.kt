@@ -16,6 +16,7 @@ import io.github.warren1001.auriel.util.filter.SpamFilter
 import io.github.warren1001.auriel.util.filter.WordFilter
 import io.github.warren1001.auriel.util.youtube.YoutubeAnnouncer
 import net.dv8tion.jda.api.Permission
+import net.dv8tion.jda.api.audit.ActionType
 import net.dv8tion.jda.api.entities.*
 import net.dv8tion.jda.api.entities.channel.ChannelType
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
@@ -249,6 +250,21 @@ class AGuild {
 	
 	fun handleBan(event: GuildBanEvent) {
 		val banned = event.user
+		event.guild.retrieveAuditLogs()
+			.type(ActionType.BAN)
+			.limit(3) // slightly higher limit in case of concurrent bans
+			.queue({logs ->
+				val entry = logs.firstOrNull { it.targetIdLong == banned.idLong }
+				if (entry != null) {
+					val moderator = entry.user
+					val reason = entry.reason
+					logBanReason(banned, moderator, reason)
+				} else {
+					auriel.warren("Tried to get ban reason for user ${banned.asMention} (${banned.name}) but no audit log entry was found for them.")
+				}
+			}, {
+				auriel.warren(it.stackTraceToString())
+			})
 		event.guild.retrieveBan(banned).queue({
 			logBanReason(banned, it.user, it.reason)
 		}, {
@@ -256,11 +272,11 @@ class AGuild {
 		})
 	}
 	
-	fun logBanReason(banned: User, by: User, reason: String?) {
-		log(Embed(title = "Message Deleted", color = Color.PINK.rgb, timestamp = Instant.now()) {
+	fun logBanReason(banned: User, by: User?, reason: String?) {
+		log(Embed(title = "User Banned", color = Color.PINK.rgb, timestamp = Instant.now()) {
 			field { name = "User"; value = "${banned.asMention} (${banned.name})"; inline = true }
 			field { name = "Reason"; value = reason ?: "No reason provided"; inline = false }
-			field { name = "By"; value = "${by.asMention} (${by.name})"; inline = true }
+			field { name = "By"; value = if (by != null) "${by.asMention} (${by.name})" else "Unknown"; inline = true }
 		})
 	}
 	
