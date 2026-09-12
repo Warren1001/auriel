@@ -145,9 +145,11 @@ fun main(args: Array<String>) {
 	val emuToken = args[2]
 	val jda: JDA = light(discordToken, enableCoroutines = true) {
 		enableIntents(GatewayIntent.entries)
+		disableIntents(GatewayIntent.GUILD_PRESENCES, GatewayIntent.GUILD_MEMBERS)
 		disableCache(CacheFlag.ACTIVITY, CacheFlag.CLIENT_STATUS, CacheFlag.ONLINE_STATUS, CacheFlag.STICKER, CacheFlag.VOICE_STATE)
-		setChunkingFilter(ChunkingFilter.ALL)
-		setMemberCachePolicy(MemberCachePolicy.ALL)
+		//setChunkingFilter(ChunkingFilter.ALL) // disabled due to disabling GUILD_MEMBERS (Server Members) privleged intent
+		setChunkingFilter(ChunkingFilter.NONE)
+		setMemberCachePolicy(MemberCachePolicy.OWNER)
 	}
 	jda.listener<ReadyEvent> {
 		try {
