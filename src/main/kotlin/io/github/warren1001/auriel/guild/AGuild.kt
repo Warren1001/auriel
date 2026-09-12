@@ -17,9 +17,13 @@ import io.github.warren1001.auriel.util.filter.WordFilter
 import io.github.warren1001.auriel.util.youtube.YoutubeAnnouncer
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.audit.ActionType
-import net.dv8tion.jda.api.entities.*
+import net.dv8tion.jda.api.entities.Member
+import net.dv8tion.jda.api.entities.Message
+import net.dv8tion.jda.api.entities.MessageEmbed
+import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.channel.ChannelType
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
+import net.dv8tion.jda.api.events.guild.GuildAuditLogEntryCreateEvent
 import net.dv8tion.jda.api.events.guild.GuildBanEvent
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent
@@ -32,7 +36,6 @@ import org.litote.kmongo.updateOne
 import java.awt.Color
 import java.time.Duration
 import java.time.Instant
-import java.util.concurrent.TimeUnit
 
 class AGuild {
 	
@@ -249,32 +252,35 @@ class AGuild {
 			.queue_()
 	}
 	
+	val banStringsByUser = mutableMapOf<Long, String>()
+	
 	fun handleBan(event: GuildBanEvent) {
 		val banned = event.user
-		event.guild.retrieveAuditLogs()
-			.type(ActionType.BAN)
-			.limit(5) // slightly higher limit in case of concurrent bans
-			.queueAfter(
-				5, TimeUnit.SECONDS,
-				{ logs ->
-					val entry = logs.firstOrNull { it.targetIdLong == banned.idLong }
-					if (entry != null) {
-						val moderator = entry.user
-						val reason = entry.reason
-						logBanReason(banned, moderator, reason)
-					} else {
-						auriel.warren("Tried to get ban reason for user ${banned.asMention} (${banned.name}) but no audit log entry was found for them.")
-					}
-				}, {
-					auriel.warren(it.stackTraceToString())
-				})
+		banStringsByUser[banned.idLong] = "${banned.asMention} (${banned.name})"
 	}
 	
-	fun logBanReason(banned: User, by: User?, reason: String?) {
+	fun handleAuditLog(event: GuildAuditLogEntryCreateEvent) {
+		val entry = event.entry
+		val targetId = entry.targetIdLong
+		if (entry.type == ActionType.BAN) {
+			if (!banStringsByUser.containsKey(targetId)) {
+				auriel.warren("No ban string for target $targetId")
+				return
+			}
+			val banString = banStringsByUser.remove(targetId)!!
+			val moderatorId = entry.userIdLong
+			val reason = entry.reason
+			event.guild.retrieveMemberById(moderatorId).queue_ { moderator ->
+				logBanReason(banString, moderator, reason)
+			}
+		}
+	}
+	
+	fun logBanReason(targetString : String, by: Member, reason: String?) {
 		log(Embed(title = "User Banned", color = Color.PINK.rgb, timestamp = Instant.now()) {
-			field { name = "User"; value = "${banned.asMention} (${banned.name})"; inline = true }
+			field { name = "User"; value = targetString; inline = true }
 			field { name = "Reason"; value = reason ?: "No reason provided"; inline = false }
-			field { name = "By"; value = if (by != null) "${by.asMention} (${by.name})" else "Unknown"; inline = true }
+			field { name = "By"; value = "${by.asMention} (${by.user.name})"; inline = true }
 		})
 	}
 	
