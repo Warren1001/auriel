@@ -255,7 +255,7 @@ class AGuild {
 			.type(ActionType.BAN)
 			.limit(5) // slightly higher limit in case of concurrent bans
 			.queueAfter(
-				1, TimeUnit.SECONDS,
+				5, TimeUnit.SECONDS,
 				{ logs ->
 					val entry = logs.firstOrNull { it.targetIdLong == banned.idLong }
 					if (entry != null) {

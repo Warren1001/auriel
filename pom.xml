@@ -6,7 +6,7 @@
     
     <artifactId>auriel</artifactId>
     <groupId>io.github.warren1001</groupId>
-    <version>1.3.1</version>
+    <version>1.3.2</version>
     <packaging>jar</packaging>
     
     <name>Auriel</name>
