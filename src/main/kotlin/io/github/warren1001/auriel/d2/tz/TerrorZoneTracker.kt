@@ -1,5 +1,6 @@
 package io.github.warren1001.auriel.d2.tz
 
+import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.core.StreamReadFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.json.JsonMapper
@@ -98,50 +99,19 @@ class TerrorZoneTracker(private val guilds: Guilds, val data: TerrorZoneTrackerD
 				try {
 					val doc = client.send(request, HttpResponse.BodyHandlers.ofString())
 					val text = doc.body()
-					//println(text)
-					val node = mapper.readTree(text)
-					if (node.has("current")) {
-						val currentZones = node["current"].elements().asSequence().map { it.asInt() }.toList()
-						val nextZones = node["next"].elements().asSequence().map { it.asInt() }.toList()
-						val nextTerrorTime = node["next_terror_time_utc"].asLong() * 1000
-						val delay = (node["delay"].asInt() + 3 + 5) * 1000
-						val nextUpdate = nextTerrorTime + delay//(node["next_available_time_utc"].asLong() + 3) * 1000
-						val currentTerrorZoneInfo = getInfoFromZoneIds(currentZones)
-						val nextTerrorZoneInfo = getInfoFromZoneIds(nextZones)
-						if (currentTerrorZoneInfo == null) {
-							attempt = 0
-							guilds.auriel.warren("Invalid current TZ info:\n$text")
-							val sleep = nextUpdate - System.currentTimeMillis()
-							if (sleep > 0) {
-								Thread.sleep(sleep)
-							} else {
-								attempt++
-							}
-							continue
-						} else if (nextTerrorZoneInfo == null) {
-							attempt = 0
-							guilds.auriel.warren("Invalid next TZ info:\n$text")
-							val sleep = nextUpdate - System.currentTimeMillis()
-							if (sleep > 0) {
-								Thread.sleep(sleep)
-							} else {
-								attempt++
-							}
-							continue
-						} else {
-							if (nextTerrorTime <= data.nextTerrorTime) {
-								if (System.currentTimeMillis() < nextUpdate) {
-									Thread.sleep(nextUpdate - System.currentTimeMillis())
-									attempt = 0
-									continue
-								} else if (!sameNotified) {
-									//guilds.auriel.warren("Automation reporting the same or old? data after expected update")
-									sameNotified = true
-								}
-							} else {
-								update(nextTerrorTime, currentTerrorZoneInfo, nextTerrorZoneInfo)
+					try {
+						val node = mapper.readTree(text)
+						if (node.has("current")) {
+							val currentZones = node["current"].elements().asSequence().map { it.asInt() }.toList()
+							val nextZones = node["next"].elements().asSequence().map { it.asInt() }.toList()
+							val nextTerrorTime = node["next_terror_time_utc"].asLong() * 1000
+							val delay = (node["delay"].asInt() + 3 + 5) * 1000
+							val nextUpdate = nextTerrorTime + delay//(node["next_available_time_utc"].asLong() + 3) * 1000
+							val currentTerrorZoneInfo = getInfoFromZoneIds(currentZones)
+							val nextTerrorZoneInfo = getInfoFromZoneIds(nextZones)
+							if (currentTerrorZoneInfo == null) {
 								attempt = 0
-								sameNotified = false
+								guilds.auriel.warren("Invalid current TZ info:\n$text")
 								val sleep = nextUpdate - System.currentTimeMillis()
 								if (sleep > 0) {
 									Thread.sleep(sleep)
@@ -149,8 +119,42 @@ class TerrorZoneTracker(private val guilds: Guilds, val data: TerrorZoneTrackerD
 									attempt++
 								}
 								continue
+							} else if (nextTerrorZoneInfo == null) {
+								attempt = 0
+								guilds.auriel.warren("Invalid next TZ info:\n$text")
+								val sleep = nextUpdate - System.currentTimeMillis()
+								if (sleep > 0) {
+									Thread.sleep(sleep)
+								} else {
+									attempt++
+								}
+								continue
+							} else {
+								if (nextTerrorTime <= data.nextTerrorTime) {
+									if (System.currentTimeMillis() < nextUpdate) {
+										Thread.sleep(nextUpdate - System.currentTimeMillis())
+										attempt = 0
+										continue
+									} else if (!sameNotified) {
+										//guilds.auriel.warren("Automation reporting the same or old? data after expected update")
+										sameNotified = true
+									}
+								} else {
+									update(nextTerrorTime, currentTerrorZoneInfo, nextTerrorZoneInfo)
+									attempt = 0
+									sameNotified = false
+									val sleep = nextUpdate - System.currentTimeMillis()
+									if (sleep > 0) {
+										Thread.sleep(sleep)
+									} else {
+										attempt++
+									}
+									continue
+								}
 							}
 						}
+					} catch (_: JsonParseException) {
+						guilds.auriel.warren("Could not parse TZ:\n```\n$text\n```")
 					}
 					attempt++
 					if (attempt <= 5) {
