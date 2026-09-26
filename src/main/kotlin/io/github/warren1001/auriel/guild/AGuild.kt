@@ -149,7 +149,7 @@ class AGuild {
 			
 		}
 		
-		if (event.channelType == ChannelType.NEWS && data.getAsBoolean("guild:crosspost") == true) event.message.crosspost().queue_()
+		if (event.channelType == ChannelType.NEWS && data.getAsBoolean("guild:crosspost") == true && event.message.messageReference == null) event.message.crosspost().queue_()
 		
 		return aChannel.handleMessageReceived(event)
 		
