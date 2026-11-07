@@ -5,6 +5,8 @@ import io.github.warren1001.auriel.a
 import io.github.warren1001.auriel.countMatches
 import io.github.warren1001.auriel.d2.clone.InteractionRelation
 import io.github.warren1001.auriel.util.*
+import net.dv8tion.jda.api.components.MessageTopLevelComponent
+import net.dv8tion.jda.api.components.selections.SelectOption
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.User
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
@@ -12,8 +14,6 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.interactions.InteractionHook
-import net.dv8tion.jda.api.interactions.components.LayoutComponent
-import net.dv8tion.jda.api.interactions.components.selections.SelectOption
 import net.dv8tion.jda.api.utils.messages.MessageCreateData
 import net.dv8tion.jda.api.utils.messages.MessageEditData
 
@@ -91,7 +91,7 @@ class SpecialMessageHandler(private val auriel: Auriel) {
 		return pinMessages.contains(channel.id)
 	}
 	
-	fun sendPinMessage(repostAfter: Int, channel: GuildMessageChannel, content: String, components: Collection<LayoutComponent> = emptyList()): PinMessage {
+	fun sendPinMessage(repostAfter: Int, channel: GuildMessageChannel, content: String, components: Collection<MessageTopLevelComponent> = emptyList()): PinMessage {
 		val message = PinMessage(repostAfter, channel, content, components)
 		pinMessages[channel.id] = message
 		return message

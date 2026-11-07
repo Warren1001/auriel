@@ -4,15 +4,17 @@ import io.github.warren1001.auriel.util.filter.SpamFilter
 import io.github.warren1001.auriel.util.filter.WordFilter
 import io.github.warren1001.auriel.util.youtube.YoutubeData
 
-data class AGuildData(val _id: String, val configData: MutableMap<String, Any>) {
-	
-	val userDefaults = mutableMapOf<String, Any>()
-	val wordFilters = mutableSetOf<WordFilter>()
-	val spamFilters = mutableSetOf<SpamFilter>()
-	val vouchBlacklist = mutableSetOf<String>()
-	val privateChannelData = mutableMapOf<String, PrivateChannelData>()
-	var youtubeData: YoutubeData = YoutubeData()
-	var nextVouchId = 0L
+data class AGuildData(
+	val _id: String,
+	val configData: MutableMap<String, Any>,
+	val userDefaults: MutableMap<String, Any> = mutableMapOf(),
+	val wordFilters: MutableSet<WordFilter> = mutableSetOf(),
+	val spamFilters: MutableSet<SpamFilter> = mutableSetOf(),
+	val vouchBlacklist: MutableSet<String> = mutableSetOf(),
+	val privateChannelData: MutableMap<String, PrivateChannelData> = mutableMapOf(),
+	var youtubeData: YoutubeData = YoutubeData(),
+	var nextVouchId: Long = 0L
+) {
 	
 	fun set(key: String, value: Any): Boolean {
 		//if (configData[key] == value) return false

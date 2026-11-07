@@ -14,12 +14,12 @@ import io.github.warren1001.auriel.queue_
 import io.github.warren1001.auriel.replyFull
 import io.github.warren1001.d2data.file.D2Lang
 import net.dv8tion.jda.api.EmbedBuilder
+import net.dv8tion.jda.api.components.actionrow.ActionRow
+import net.dv8tion.jda.api.components.buttons.Button
 import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.User
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
-import net.dv8tion.jda.api.interactions.components.ActionRow
-import net.dv8tion.jda.api.interactions.components.buttons.Button
 import java.awt.Color
 import java.time.Instant
 import java.util.concurrent.TimeUnit
@@ -654,9 +654,10 @@ class Commands(private val auriel: Auriel) {
 					.setDescription("Showing the last 5 vouches:")
 					.setColor(Color.GREEN)
 					.setTimestamp(Instant.now())
-				for (vouch in vouches) {
-					val voucher = vouch.vouchedBy.let { auriel.jda.getUserById(it) }?.name ?: "Unknown User (${vouch.vouchedBy})"
-					embed.addField(voucher, "(${vouch.id}) - ${vouch.reason}", false)
+				for ((id, vouchedBy, reason) in vouches) {
+					// TODO retrieve if not cached
+					val voucher = vouchedBy.let { auriel.jda.getUserById(it) }?.name ?: "Unknown User ($vouchedBy)"
+					embed.addField(voucher, "($id) - $reason", false)
 				}
 				if (hide) {
 					it.reply_(embeds = listOf(embed.build())).queue_()

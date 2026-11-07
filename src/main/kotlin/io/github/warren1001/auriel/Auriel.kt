@@ -1,6 +1,6 @@
 package io.github.warren1001.auriel
 
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.youtube.YouTube
 import com.google.api.services.youtube.YouTubeRequestInitializer
@@ -19,6 +19,7 @@ import io.github.warren1001.auriel.eventhandler.SpecialMessageHandler
 import io.github.warren1001.auriel.guild.Config
 import io.github.warren1001.auriel.guild.Guilds
 import net.dv8tion.jda.api.JDA
+import net.dv8tion.jda.api.components.MessageTopLevelComponent
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.Member
 import net.dv8tion.jda.api.entities.Message
@@ -35,7 +36,6 @@ import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionE
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.events.session.ReadyEvent
 import net.dv8tion.jda.api.exceptions.ErrorHandler
-import net.dv8tion.jda.api.interactions.components.LayoutComponent
 import net.dv8tion.jda.api.requests.ErrorResponse
 import net.dv8tion.jda.api.requests.GatewayIntent
 import net.dv8tion.jda.api.requests.RestAction
@@ -60,7 +60,7 @@ class Auriel(val jda: JDA, youtubeToken: String, emuToken: String) {
 	private val buttonInteractionHandler = ButtonInteractionHandler(this)
 	private val modalInteractionHandler = ModalInteractionHandler()
 	
-	val youtube: YouTube = YouTube.Builder(GoogleNetHttpTransport.newTrustedTransport(), GsonFactory.getDefaultInstance()) {}.setApplicationName("new-video-checker")
+	val youtube: YouTube = YouTube.Builder(NetHttpTransport.Builder().build(), GsonFactory.getDefaultInstance()) {}.setApplicationName("new-video-checker")
 		.setYouTubeRequestInitializer(YouTubeRequestInitializer(youtubeToken)).build()
 	val database: MongoDatabase = mongo.getDatabase("auriel")
 	val guilds = Guilds(this, emuToken)
@@ -202,7 +202,7 @@ fun String.truncate(length: Int): String = substring(0, this.length.coerceAtMost
 
 fun MessageChannel.message(message: String) = sendMessage(message.truncate(2000))
 
-fun MessageChannel.message(message: String, components: Collection<LayoutComponent>) = sendMessage(MessageCreate(message.truncate(2000), components = components))
+fun MessageChannel.message(message: String, components: Collection<MessageTopLevelComponent>) = sendMessage(MessageCreate(message.truncate(2000), components = components))
 
 fun SlashCommandInteractionEvent.replyFull(message: String): RestAction<out Any> {
 	return if (message.length > 2000) {
@@ -251,7 +251,7 @@ private fun lineChunked(string: String, length: Int, chunks: MutableList<String>
 	}
 }
 
-fun MessageChannel.fullMessage(message: String, components: Collection<LayoutComponent>): RestAction<out Any> {
+fun MessageChannel.fullMessage(message: String, components: Collection<MessageTopLevelComponent>): RestAction<out Any> {
 	return if (message.length > 2000) {
 		val parts = message.chunked(2000)
 		var previousRestAction: RestAction<out Any>? = null

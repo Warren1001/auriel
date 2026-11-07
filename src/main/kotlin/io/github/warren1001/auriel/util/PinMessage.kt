@@ -3,12 +3,12 @@ package io.github.warren1001.auriel.util
 import io.github.warren1001.auriel.message
 import io.github.warren1001.auriel.queueDelete
 import io.github.warren1001.auriel.queue_
+import net.dv8tion.jda.api.components.MessageTopLevelComponent
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
-import net.dv8tion.jda.api.interactions.components.LayoutComponent
 
-class PinMessage(private val repostAfter: Int, channel: GuildMessageChannel, private var content: String, private var components: Collection<LayoutComponent> = emptyList()) {
+class PinMessage(private val repostAfter: Int, channel: GuildMessageChannel, private var content: String, private var components: Collection<MessageTopLevelComponent> = emptyList()) {
 	
 	val channelId = channel.id
 	private var message: Message? = null

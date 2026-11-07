@@ -1,9 +1,11 @@
 package io.github.warren1001.auriel.user
 
-data class AUserData(val _id: String, val userData: MutableMap<String, Any>) {
-	
-	val vouches = mutableListOf<Vouch>()
-	var lastVouch = 0L
+data class AUserData(
+	val _id: String,
+	val userData: MutableMap<String, Any>,
+	val vouches: MutableList<Vouch> = mutableListOf(),
+	var lastVouch: Long = 0L
+) {
 	
 	fun verifyDefaults(defaults: Map<String, Any>): Boolean {
 		var changes = false

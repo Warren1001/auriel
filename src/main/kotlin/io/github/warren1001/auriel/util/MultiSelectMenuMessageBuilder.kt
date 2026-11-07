@@ -1,6 +1,6 @@
 package io.github.warren1001.auriel.util
 
-import net.dv8tion.jda.api.interactions.components.selections.SelectOption
+import net.dv8tion.jda.api.components.selections.SelectOption
 
 class MultiSelectMenuMessageBuilder<T> {
 	

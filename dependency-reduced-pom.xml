@@ -4,9 +4,8 @@
   <groupId>io.github.warren1001</groupId>
   <artifactId>auriel</artifactId>
   <name>Auriel</name>
-  <version>1.4.2</version>
+  <version>1.5.1</version>
   <build>
-    <sourceDirectory>src/main/kotlin</sourceDirectory>
     <finalName>Auriel</finalName>
     <plugins>
       <plugin>
@@ -24,19 +23,8 @@
       <plugin>
         <groupId>org.jetbrains.kotlin</groupId>
         <artifactId>kotlin-maven-plugin</artifactId>
-        <version>2.0.21</version>
-        <executions>
-          <execution>
-            <id>compile</id>
-            <phase>compile</phase>
-            <goals>
-              <goal>compile</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <jvmTarget>${kotlin.compiler.jvmTarget}</jvmTarget>
-        </configuration>
+        <version>${kotlin.version}</version>
+        <extensions>true</extensions>
       </plugin>
       <plugin>
         <artifactId>maven-jar-plugin</artifactId>
@@ -53,10 +41,6 @@
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
-        <configuration>
-          <source>${kotlin.compiler.jvmTarget}</source>
-          <target>${kotlin.compiler.jvmTarget}</target>
-        </configuration>
       </plugin>
     </plugins>
   </build>
@@ -84,11 +68,10 @@
     </repository>
   </repositories>
   <properties>
-    <kotlin.version>2.0.21</kotlin.version>
-    <kotlin.compiler.jvmTarget>19</kotlin.compiler.jvmTarget>
-    <jackson-version>2.18.0</jackson-version>
-    <kotlin.code.style>official</kotlin.code.style>
-    <kotlin-coroutines-version>1.9.0</kotlin-coroutines-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <kotlin.code.style>official</kotlin.code.style>
+    <jackson-version>2.22.4</jackson-version>
+    <kotlin.version>2.4.20</kotlin.version>
+    <kotlin-coroutines-version>1.11.0</kotlin-coroutines-version>
   </properties>
 </project>

@@ -5,9 +5,9 @@ import dev.minn.jda.ktx.interactions.components.StringSelectMenu
 import dev.minn.jda.ktx.messages.MessageCreate
 import dev.minn.jda.ktx.messages.editMessage_
 import io.github.warren1001.auriel.queue_
+import net.dv8tion.jda.api.components.actionrow.ActionRow
+import net.dv8tion.jda.api.components.selections.SelectOption
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent
-import net.dv8tion.jda.api.interactions.components.ActionRow
-import net.dv8tion.jda.api.interactions.components.selections.SelectOption
 import net.dv8tion.jda.api.utils.messages.MessageCreateData
 
 class MultiSelectMenuMessage<T>(private val id: String, private val data: MutableMap<T, List<String>>, private val values: List<T>,

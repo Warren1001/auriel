@@ -1,6 +1,7 @@
 package io.github.warren1001.auriel.d2.clone
 
 import dev.minn.jda.ktx.interactions.components.StringSelectMenu
+import dev.minn.jda.ktx.interactions.components.TextInput
 import dev.minn.jda.ktx.interactions.components.option
 import dev.minn.jda.ktx.interactions.components.replyModal
 import dev.minn.jda.ktx.messages.edit
@@ -8,6 +9,10 @@ import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.*
 import io.github.warren1001.auriel.guild.AGuild
 import io.github.warren1001.auriel.util.PinMessage
+import net.dv8tion.jda.api.components.MessageTopLevelComponent
+import net.dv8tion.jda.api.components.actionrow.ActionRow
+import net.dv8tion.jda.api.components.buttons.Button
+import net.dv8tion.jda.api.components.textinput.TextInputStyle
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.User
@@ -16,10 +21,7 @@ import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.GenericComponentInteractionCreateEvent
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent
-import net.dv8tion.jda.api.interactions.components.ActionRow
 import net.dv8tion.jda.api.interactions.components.ComponentInteraction
-import net.dv8tion.jda.api.interactions.components.LayoutComponent
-import net.dv8tion.jda.api.interactions.components.buttons.Button
 import java.util.*
 
 class CloneHandler(private val auriel: Auriel, private val guild: AGuild) {
@@ -31,12 +33,12 @@ class CloneHandler(private val auriel: Auriel, private val guild: AGuild) {
 	private val helperDMs = mutableMapOf<String, Message>()
 	private val helpeeEditors = mutableMapOf<String, Message>()
 	
-	private var helpeeStartButton: Collection<LayoutComponent>? = null
-	private var helpeeMessageButtons: Collection<LayoutComponent>? = null
-	private var helpeeScamButton: Collection<LayoutComponent>? = null
-	private var helpeeVouchButton: Collection<LayoutComponent>? = null
-	private var helperStartButton: Collection<LayoutComponent>? = null
-	private var helperMessageButtons: Collection<LayoutComponent>? = null
+	private var helpeeStartButton: Collection<MessageTopLevelComponent>? = null
+	private var helpeeMessageButtons: Collection<MessageTopLevelComponent>? = null
+	private var helpeeScamButton: Collection<MessageTopLevelComponent>? = null
+	private var helpeeVouchButton: Collection<MessageTopLevelComponent>? = null
+	private var helperStartButton: Collection<MessageTopLevelComponent>? = null
+	private var helperMessageButtons: Collection<MessageTopLevelComponent>? = null
 	private var helpeeMessage: PinMessage? = null
 	private var helperMessage: PinMessage? = null
 	
@@ -93,7 +95,7 @@ class CloneHandler(private val auriel: Auriel, private val guild: AGuild) {
 				Button.danger("clone:${guild.id}:helper-done", guild.data.getAsString("guild:clone:helper-done-button")!!)
 			),
 			ActionRow.of(
-				StringSelectMenu("clone:${guild.id}:helper-error", "Error") {
+				StringSelectMenu("clone:${guild.id}:helper-error", placeholder = "Error") {
 					setRequiredRange(1, 1)
 					option(guild.data.getAsString("guild:clone:afk-kill")!!, "clone:afk-kill")
 					option(guild.data.getAsString("guild:clone:afk-nokill")!!, "clone:afk-nokill")
@@ -143,21 +145,21 @@ class CloneHandler(private val auriel: Auriel, private val guild: AGuild) {
 			}
 			println("modal id 1 clone:${guild.id}:request")
 			event.replyModal("clone:${guild.id}:request", "Request Diablo Clone Help") {
-				short("game-name", "Game Name", true, placeholder = "MyGame1", value = info.gameName)
-				short("game-password", "Game Password", true, placeholder = "1", value = info.password)
-				short("game-spawn", "Diablo Spawn", true, placeholder = "Did you spawn DClone already? If so, where?", value = info.spawned)
-				short("game-spawn", "Diablo Spawn", true, placeholder = "Did you spawn DClone already? If so, where? If not, write no.", value = info.furthestAct)
-				paragraph("game-other", "Other Info", false, placeholder = "(optional) Any other information you want to provide", value = info.otherInfo)
+				label("Game Name", description = "Test 1", child = TextInput("game-name", TextInputStyle.SHORT, required = true, value = info.gameName, placeholder = "MyGame1"))
+				label("Game Password", child = TextInput("game-password", TextInputStyle.SHORT, required = true, value = info.password, placeholder = "1"))
+				label("Diablo Spawn", child = TextInput("game-spawn", TextInputStyle.SHORT, required = true, value = info.spawned, placeholder = "Did you spawn DClone already? If so, where? If not, write no."))
+				label("Act Access", child = TextInput("game-act", TextInputStyle.SHORT, required = true, value = info.furthestAct, placeholder = "What is the last Act in Hell you can access?"))
+				label("Other Info", child = TextInput("game-other", TextInputStyle.PARAGRAPH, required = false, value = info.otherInfo, placeholder = "(optional) Any other information you want to provide"))
 			}.queue_()
 		} else {
 			println("modal id 2 clone:${guild.id}:request")
 			println(guild.id)
 			event.replyModal("clone:${guild.id}:request", "Request Diablo Clone Help") {
-				short("game-name", "Game Name", true, placeholder = "MyGame1")
-				short("game-password", "Game Password", true, placeholder = "1")
-				short("game-spawn", "Diablo Spawn", true, placeholder = "Did you spawn DClone already? If so, where? If not, write no.")
-				short("game-act", "Act Access", true, placeholder = "What is the last Act in Hell you can access?")
-				paragraph("game-other", "Other Info", false, placeholder = "(optional) Any other information you want to provide")
+				label("Game Name", child = TextInput("game-name", TextInputStyle.SHORT, required = true, placeholder = "MyGame1"))
+				label("Game Password", child = TextInput("game-password", TextInputStyle.SHORT, required = true, placeholder = "1"))
+				label("Diablo Spawn", child = TextInput("game-spawn", TextInputStyle.SHORT, required = true, placeholder = "Did you spawn DClone already? If so, where? If not, write no."))
+				label("Act Access", child = TextInput("game-act", TextInputStyle.SHORT, required = true, placeholder = "What is the last Act in Hell you can access?"))
+				label("Other Info", child = TextInput("game-other", TextInputStyle.PARAGRAPH, required = false, placeholder = "(optional) Any other information you want to provide"))
 			}.queue_()
 		}
 	}

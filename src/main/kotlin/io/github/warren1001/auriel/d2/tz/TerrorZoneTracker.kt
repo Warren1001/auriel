@@ -2,6 +2,7 @@ package io.github.warren1001.auriel.d2.tz
 
 import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.core.StreamReadFeature
+import com.fasterxml.jackson.databind.MapperFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.json.JsonMapper
 import com.mongodb.client.model.UpdateOptions
@@ -93,7 +94,10 @@ class TerrorZoneTracker(private val guilds: Guilds, val data: TerrorZoneTrackerD
 	
 	fun startTracker() {
 		executors.execute {
-			val mapper: ObjectMapper = JsonMapper.builder().enable(StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION).build()
+			val mapper: ObjectMapper = JsonMapper.builder()
+				.enable(StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION)
+				.disable(MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS)
+				.build()
 			running = true
 			while (running) {
 				try {
