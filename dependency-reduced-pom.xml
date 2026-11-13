@@ -4,8 +4,9 @@
   <groupId>io.github.warren1001</groupId>
   <artifactId>auriel</artifactId>
   <name>Auriel</name>
-  <version>1.5.1</version>
+  <version>1.6.0</version>
   <build>
+    <sourceDirectory>src/main/kotlin</sourceDirectory>
     <finalName>Auriel</finalName>
     <plugins>
       <plugin>
@@ -41,6 +42,10 @@
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
+        <configuration>
+          <source>21</source>
+          <target>21</target>
+        </configuration>
       </plugin>
     </plugins>
   </build>
@@ -67,6 +72,14 @@
       <url>https://jitpack.io/</url>
     </repository>
   </repositories>
+  <dependencies>
+    <dependency>
+      <groupId>org.jetbrains</groupId>
+      <artifactId>annotations</artifactId>
+      <version>26.1.0</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <kotlin.code.style>official</kotlin.code.style>
