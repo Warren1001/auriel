@@ -4,24 +4,28 @@ import dev.minn.jda.ktx.interactions.components.SelectOption
 import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.Auriel
 import io.github.warren1001.auriel.a
-import io.github.warren1001.auriel.countMatches
-import io.github.warren1001.auriel.d2.clone.InteractionRelation
 import io.github.warren1001.auriel.queue_
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 
 class ButtonInteractionHandler(private val auriel: Auriel) {
 	
 	fun handle(event: ButtonInteractionEvent) {
+		/*
 		if (event.componentId.countMatches(":") > 2) {
 			val guildId = event.componentId.split(':')[1]
 			if (auriel.guilds.getGuild(guildId).cloneHandler.onButtonPress(event) == InteractionRelation.RELATED) return
 		}
+		*/
 		if (!event.isFromGuild) return
+		val guild = event.guild!!
+		val cloneHandler = guild.a().cloneHandler
+		if (cloneHandler != null && cloneHandler.onButtonInteraction(event)) return
+		/*
 		if (event.componentId.contains(":")) {
 			if (event.guild!!.a().cloneHandler.onButtonPress(event) == InteractionRelation.RELATED) return
 		}
+		*/
 		if (event.componentId.contains("-")) {
-			val guild = event.guild!!
 			val args = event.componentId.split("-")
 			val member = event.member!!
 			if (args[0] == "r") {
@@ -44,17 +48,17 @@ class ButtonInteractionHandler(private val auriel: Auriel) {
 			}
 		}
 		else if (event.componentId == "tzrolebutton") {
-			val guild = event.guild!!.a()
-			if (guild.tzGuildData.roleIds == null) {
+			val guildA = event.guild!!.a()
+			if (guildA.tzGuildData.roleIds == null) {
 				event.reply_("This feature has not been setup yet.").queue_()
 			} else {
 				val tzInfos = auriel.guilds.tzTracker.tzInfos
-				val roleIds = guild.tzGuildData.roleIds!!
+				val roleIds = guildA.tzGuildData.roleIds!!
 				val roleIdsList: List<Map.Entry<String, String>> = roleIds.entries.toList()
 				val roleIdsByAct: List<MutableList<Map.Entry<String, String>>> = listOf(mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf(), mutableListOf())
 				roleIdsList.forEach { roleIdsByAct[it.key[3].toString().toInt() - 1].add(it) }
 				var randId = 0
-				val messageCreateData = auriel.specialMessageHandler.replyMultiSelectMenuMessage<MutableList<Map.Entry<String, String>>> {
+				val messageCreateData = auriel.specialMessageHandler.replyMultiSelectMenuMessage {
 					userId = event.user.id
 					values = roleIdsByAct
 					format = "What role do you want to use for the Terror Zones in **%s**?"
@@ -64,14 +68,14 @@ class ButtonInteractionHandler(private val auriel: Auriel) {
 					filter = { list, i -> (list[0].key[3].toString().toInt() - 1) == i }
 					optionConverter = { tz ->
 						tz.map {
-							var display = tzInfos[it.key]!!.string.get(guild.data.getAsString("guild:tz-language")!!)
+							var display = tzInfos[it.key]!!.string.get(guildA.data.getAsString("guild:tz-language")!!)
 							if (display.length > 100) display = display.substring(0, 100)
 							SelectOption(display, "${it.value}-${randId++}")
 						}
 					}
 					display = { list -> "Act ${list[0].key[3].toString().toInt()}" }
 					finished = { data ->
-						val addRoles = data.map { it.value }.flatten().map { if (it.contains("-")) it.substringBefore("-") else it }.map { auriel.jda.getRoleById(it)!! }.toSet()
+						val addRoles = data.asSequence().flatMap { it.value }.map { if (it.contains("-")) it.substringBefore("-") else it }.map { auriel.jda.getRoleById(it)!! }.toSet()
 						val removeRoles = roleIds.values.map { auriel.jda.getRoleById(it)!! }.toSet() - addRoles
 						event.guild!!.modifyMemberRoles(event.member!!, addRoles, removeRoles).queue_()
 					}

@@ -35,6 +35,7 @@ class ConfigDataBuilder {
 		val GUILD_MODIFY_VALUE: (ConfigContext, String) -> Boolean = { context, key ->
 			var value = context.get()
 			if (value is GuildMessageChannel) value = value.id
+			if (value is String && value.startsWith("{")) throw IllegalStateException("Saving raw JSON rather than the direct object")
 			context.guild.a().data.set(key, value)
 		}
 		val GUILD_SAVE_CHANGES: (ConfigContext) -> Unit = { it.guild.a().saveData() }

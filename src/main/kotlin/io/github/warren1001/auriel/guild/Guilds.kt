@@ -2,11 +2,13 @@ package io.github.warren1001.auriel.guild
 
 import com.mongodb.client.MongoCollection
 import io.github.warren1001.auriel.Auriel
+import io.github.warren1001.auriel.a
 import io.github.warren1001.auriel.d2.tz.TerrorZoneTracker
 import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerData
 import io.github.warren1001.auriel.d2.tz.TerrorZoneTrackerGuildData
 import io.github.warren1001.auriel.queue_
 import net.dv8tion.jda.api.entities.channel.ChannelType
+import net.dv8tion.jda.api.events.channel.ChannelDeleteEvent
 import net.dv8tion.jda.api.events.guild.GuildAuditLogEntryCreateEvent
 import net.dv8tion.jda.api.events.guild.GuildBanEvent
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent
@@ -42,6 +44,13 @@ class Guilds(val auriel: Auriel, emuToken: String) {
 		}
 		tzTracker = TerrorZoneTracker(this, data, emuToken)
 		//println("We are in a total of ${guilds.size} server(s)!")
+	}
+	
+	fun handleChannelDelete(event: ChannelDeleteEvent) {
+		val type = event.channelType
+		if (type.isGuild) {
+			event.guild.a().handleChannelDelete(event)
+		}
 	}
 	
 	fun handleMessageReceived(event: MessageReceivedEvent): Boolean {

@@ -5,13 +5,18 @@ import io.github.warren1001.auriel.*
 import io.github.warren1001.auriel.guild.AGuild
 import io.github.warren1001.auriel.util.filter.WordFilter
 import net.dv8tion.jda.api.Permission
+import net.dv8tion.jda.api.entities.Member
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.MessageHistory
 import net.dv8tion.jda.api.entities.User
+import net.dv8tion.jda.api.entities.channel.ChannelType
+import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel
+import net.dv8tion.jda.api.events.channel.ChannelDeleteEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.utils.TimeUtil
 import org.litote.kmongo.updateOne
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.timer
 
 class AGuildMessageChannel {
@@ -28,6 +33,8 @@ class AGuildMessageChannel {
 	
 	private val lastMemberMessage = mutableMapOf<User, Message>()
 	private var messageAgeTimer: Timer? = null
+	
+	val privateThreadsById: ConcurrentHashMap<String, ThreadChannel> = ConcurrentHashMap()
 	
 	constructor(auriel: Auriel, guild: AGuild, id: String) {
 		this.auriel = auriel
@@ -51,6 +58,24 @@ class AGuildMessageChannel {
 	}
 	
 	fun saveData() = guild.textChannelDataCollection.updateOne(data, options = UpdateOptions().upsert(true))
+	
+	fun addPersonalThread(member: Member, threadChannel: ThreadChannel) {
+		privateThreadsById[threadChannel.id] = threadChannel
+		data.addPersonalThreadData(PersonalThreadData(threadChannel.id, member.id))
+	}
+	
+	fun removePersonalThread(member: Member) {
+		data.personalThreadDataByMember[member.id]?.let {
+			privateThreadsById.remove(it._id)
+			data.removePersonalThreadData(it)
+		}
+	}
+	
+	fun handleChannelDelete(event: ChannelDeleteEvent) {
+		if (event.channelType == ChannelType.GUILD_PRIVATE_THREAD) {
+			privateThreadsById.remove(event.channel.id)
+		}
+	}
 	
 	fun handleMessageReceived(event: MessageReceivedEvent): Boolean {
 		// cant be a bot and will always be a guild channel

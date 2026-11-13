@@ -1,5 +1,6 @@
 package io.github.warren1001.auriel
 
+import com.fasterxml.jackson.databind.module.SimpleModule
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.youtube.YouTube
@@ -11,21 +12,27 @@ import dev.minn.jda.ktx.messages.MessageCreate
 import dev.minn.jda.ktx.messages.SendDefaults
 import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.command.Commands
+import io.github.warren1001.auriel.d2.clone.CloneDataHelpee
+import io.github.warren1001.auriel.d2.clone.CloneDataHelper
 import io.github.warren1001.auriel.d2.item.Items
-import io.github.warren1001.auriel.eventhandler.ButtonInteractionHandler
-import io.github.warren1001.auriel.eventhandler.CommandAutoCompleteInteractionHandler
-import io.github.warren1001.auriel.eventhandler.ModalInteractionHandler
-import io.github.warren1001.auriel.eventhandler.SpecialMessageHandler
+import io.github.warren1001.auriel.eventhandler.*
 import io.github.warren1001.auriel.guild.Config
 import io.github.warren1001.auriel.guild.Guilds
+import io.github.warren1001.auriel.serialize.MessageCreateDataDeserializer
+import io.github.warren1001.auriel.serialize.MessageCreateDataSerializer
+import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.JDA
+import net.dv8tion.jda.api.components.Components
 import net.dv8tion.jda.api.components.MessageTopLevelComponent
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.Member
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.User
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
+import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel
+import net.dv8tion.jda.api.events.channel.ChannelDeleteEvent
 import net.dv8tion.jda.api.events.guild.GuildAuditLogEntryCreateEvent
 import net.dv8tion.jda.api.events.guild.GuildBanEvent
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
@@ -35,6 +42,7 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.events.session.ReadyEvent
+import net.dv8tion.jda.api.events.thread.member.ThreadMemberLeaveEvent
 import net.dv8tion.jda.api.exceptions.ErrorHandler
 import net.dv8tion.jda.api.requests.ErrorResponse
 import net.dv8tion.jda.api.requests.GatewayIntent
@@ -43,10 +51,14 @@ import net.dv8tion.jda.api.requests.restaction.AuditableRestAction
 import net.dv8tion.jda.api.utils.ChunkingFilter
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import net.dv8tion.jda.api.utils.cache.CacheFlag
+import net.dv8tion.jda.api.utils.data.DataObject
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder
+import net.dv8tion.jda.api.utils.messages.MessageCreateData
 import org.apache.commons.lang3.StringUtils
 import org.litote.kmongo.KMongo
-import org.litote.kmongo.util.UpdateConfiguration
+import org.litote.kmongo.util.KMongoConfiguration
 import java.io.File
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import kotlin.system.exitProcess
 
@@ -57,22 +69,39 @@ class Auriel(val jda: JDA, youtubeToken: String, emuToken: String) {
 	}
 	
 	private val mongo = KMongo.createClient()
-	private val buttonInteractionHandler = ButtonInteractionHandler(this)
-	private val modalInteractionHandler = ModalInteractionHandler()
+	
+	init {
+		KMongoConfiguration.registerBsonModule(SimpleModule().apply {
+			addSerializer(MessageCreateData::class.java, MessageCreateDataSerializer())
+			addDeserializer(MessageCreateData::class.java, MessageCreateDataDeserializer())
+		})
+	}
 	
 	val youtube: YouTube = YouTube.Builder(NetHttpTransport.Builder().build(), GsonFactory.getDefaultInstance()) {}.setApplicationName("new-video-checker")
 		.setYouTubeRequestInitializer(YouTubeRequestInitializer(youtubeToken)).build()
 	val database: MongoDatabase = mongo.getDatabase("auriel")
 	val guilds = Guilds(this, emuToken)
+	val buttonInteractionHandler = ButtonInteractionHandler(this)
+	val modalInteractionHandler = ModalInteractionHandler()
 	val specialMessageHandler = SpecialMessageHandler(this)
 	val autoCompletionHandler = CommandAutoCompleteInteractionHandler()
+	val threadMemberLeaveHandler = ThreadMemberLeaveHandler()
 	val commands = Commands(this)
 	val config = Config(this)
 	val items = Items()
 	
+	val warren: User = jda.retrieveUserById("164118147073310721").complete()
+	
 	init {
 		SendDefaults.ephemeral = true
-		UpdateConfiguration.updateOnlyNotNullProperties = true
+		//UpdateConfiguration.updateOnlyNotNullProperties = true
+		jda.listener<ChannelDeleteEvent> {
+			try {
+				guilds.handleChannelDelete(it)
+			} catch (e: Exception) {
+				warren(e.stackTraceToString())
+			}
+		}
 		jda.listener<MessageReceivedEvent> {
 			try {
 				specialMessageHandler.handleMessageReceived(it)
@@ -108,6 +137,14 @@ class Auriel(val jda: JDA, youtubeToken: String, emuToken: String) {
 				warren(e.stackTraceToString())
 			}
 		}
+		// requires GUILD_MEMBERS privileged intent
+		jda.listener<ThreadMemberLeaveEvent> {
+			try {
+				threadMemberLeaveHandler.onThreadMemberLeave(it)
+			} catch(e: Exception) {
+				warren(e.stackTraceToString())
+			}
+		}
 		jda.listener<GuildBanEvent> {
 			try {
 				guilds.handleBan(it)
@@ -131,9 +168,9 @@ class Auriel(val jda: JDA, youtubeToken: String, emuToken: String) {
 		mongo.close()
 	}
 	
-	fun warren(action: (User) -> Unit) = jda.retrieveUserById("164118147073310721").queue(action)
+	fun warren(action: (User) -> Unit) = action.invoke(warren)
 	
-	fun warren(msg: String) = warren { it.dm(msg).queue() }
+	fun warren(msg: String) = warren { it.dm(msg).queue_() }
 	
 }
 
@@ -231,6 +268,55 @@ fun MessageChannel.fullMessage(message: String): RestAction<out Any> {
 	}
 }
 
+fun <T> CompletableFuture<T>.errorToWarren(): CompletableFuture<T> = whenComplete { _, exc -> exc?.let { auriel.warren(it.stackTraceToString()) } }
+
+fun <T> CompletableFuture<T>.errorToWarren(action: () -> Unit): CompletableFuture<T> = whenComplete { _, exc ->
+	exc?.let { auriel.warren(it.stackTraceToString()) }
+	action.invoke()
+}
+
+fun TextChannel.createPersonalThread(member: Member): RestAction<ThreadChannel> =
+	createThreadChannel(member.user.name, true)
+		.setAutoArchiveDuration(ThreadChannel.AutoArchiveDuration.TIME_1_HOUR)
+		.setInvitable(false)
+		.flatMap { thread ->
+			a().addPersonalThread(member, thread)
+			thread.addThreadMember(member).map { thread }
+		}
+
+fun TextChannel.getPersonalThread(member: Member): CompletableFuture<ThreadChannel> {
+	val a = a()
+	val personalThreadData = a.data.personalThreadDataByMember[member.id]
+		?: return CompletableFuture.failedFuture<ThreadChannel>(
+			NoSuchElementException("Member ${member.effectiveName} does not have a personal thread")
+		).errorToWarren()
+	val threadId = personalThreadData._id
+	a.privateThreadsById[threadId]?.let { return CompletableFuture.completedFuture(it) }
+	threadChannels.firstOrNull { it.id == threadId }?.let { return CompletableFuture.completedFuture(it) }
+	return retrieveArchivedPrivateJoinedThreadChannels()
+		.submit()
+		.thenCompose {
+			it.firstOrNull { it.id == threadId }
+				?.let { CompletableFuture.completedFuture(it) }
+				?: guild.retrieveActiveThreads()
+					.submit()
+					.thenCompose {
+						it.firstOrNull { it.id == threadId }
+							?.let { CompletableFuture.completedFuture(it) }
+							?: CompletableFuture.failedFuture<ThreadChannel>(
+								NoSuchElementException("Personal thread $threadId could not be found")
+							).errorToWarren()
+					}
+		}
+		.thenApply {
+			a.privateThreadsById[threadId] = it
+			it
+		}
+}
+
+fun TextChannel.deletePersonalThread(member: Member) =
+	getPersonalThread(member).thenCompose { it.delete().submit() }.errorToWarren { a().removePersonalThread(member) }
+
 fun String.lineChunked(length: Int = 2000): MutableList<String> {
 	val chunks = mutableListOf("")
 	for (line in split('\n')) {
@@ -289,6 +375,60 @@ fun String.countMatches(substring: String): Int {
 		}
 	}
 }
+
+fun String.toDataObject() = DataObject.fromJson(this)
+
+fun DataObject.toMessageCreateData(): MessageCreateData {
+	val builder = MessageCreateBuilder()
+	if (!isNull("flags")) {
+		val flags = Message.MessageFlag.fromBitField(getInt("flags"))
+		if (Message.MessageFlag.IS_COMPONENTS_V2 in flags) builder.useComponentsV2()
+		val componentsArray = getArray("components")
+		val components = Components.parseComponents(MessageTopLevelComponent::class.java, componentsArray)
+		if (components.isNotEmpty()) {
+			builder.setComponents(components)
+		}
+	} else {
+		if (!isNull("content")) {
+			builder.setContent(getString("content"))
+		}
+		if (!isNull("embeds")) {
+			val embeds = getArray("embeds").map { embedObj ->
+				EmbedBuilder.fromData(embedObj as DataObject).build()
+			}
+			if (embeds.isNotEmpty()) {
+				builder.setEmbeds(embeds)
+			}
+		}
+		if (!isNull("components")) {
+			val componentsArray = getArray("components")
+			val components = Components.parseComponents(MessageTopLevelComponent::class.java, componentsArray)
+			if (components.isNotEmpty()) {
+				builder.setComponents(components)
+			}
+		}
+	}
+	return builder.build()
+}
+
+fun MessageCreateData.toJSONString(): String {
+	val data = toData()
+	data.remove("tts")
+	data.remove("allowed_mentions")
+	data.remove("replied_user")
+	return String(data.toJson(), Charsets.UTF_8)
+}
+
+fun String.toMessageCreateData() = toDataObject().toMessageCreateData()
+
+fun Member.getCloneHelpeeData(): CloneDataHelpee? {
+	val guildA = guild.a()
+	val cloneHandler = guildA.cloneHandler ?: return null
+	if (!cloneHandler.hasHelpeeData(id)) return null
+	return cloneHandler.getHelpeeData(id)
+}
+
+fun Member.getCloneHelperData(): CloneDataHelper? = a().data.dataCloneHelper
 
 val cyrDict = mapOf(
 	Pair("A", "А"),

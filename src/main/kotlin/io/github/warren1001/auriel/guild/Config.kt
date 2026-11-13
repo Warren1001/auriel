@@ -4,13 +4,17 @@ import dev.minn.jda.ktx.messages.reply_
 import io.github.warren1001.auriel.Auriel
 import io.github.warren1001.auriel.a
 import io.github.warren1001.auriel.isWarren
+import io.github.warren1001.auriel.toMessageCreateData
 import io.github.warren1001.d2data.file.D2Lang
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Member
+import net.dv8tion.jda.api.exceptions.ParsingException
+import net.dv8tion.jda.api.utils.messages.MessageCreateData
 
 class Config(private val auriel: Auriel) {
 
 	private val configData = mutableMapOf<String, ConfigData>()
+	private val defaultComponents = mutableMapOf<String, MessageCreateData>()
 	
 	fun prettyPrintConfigData(key: String, requester: Member): String {
 		var guild : AGuild = requester.guild.a()
@@ -109,12 +113,26 @@ class Config(private val auriel: Auriel) {
 		requireNotNull(configContextBuilder.value) { "Value cannot be null" }
 		
 		val configData = configData[key] ?: return ConfigError.NOT_FOUND
-		if (!configData.isAllowedType(configContextBuilder.value!!)) return ConfigError.INVALID_DATA_TYPE
+		var value: Any = configContextBuilder.value!!
+		
+		if (configData.hasAllowedType(ConfigDataType.MESSAGE_CREATE_DATA)) {
+			if (value is String) {
+				try {
+					value = value.toMessageCreateData()
+				} catch (_: ParsingException) {
+					return ConfigError.PARSING_ERROR
+				}
+			} else if (value !is MessageCreateData) {
+				return ConfigError.PARSING_ERROR
+			}
+		}
+		
+		if (!configData.isAllowedType(value)) return ConfigError.INVALID_DATA_TYPE
 		if (configData.permission == Permission.ADMINISTRATOR && !member.isWarren()) return ConfigError.NOT_FOUND
 		if (!member.hasPermission(configData.permission)) return ConfigError.NO_PERMISSION
 		
 		val configContext = ConfigContext(auriel, configContextBuilder.event!!, configContextBuilder.guild!!, configContextBuilder.channel!!,
-			configContextBuilder.author!!, configContextBuilder.value!!)
+			configContextBuilder.author!!, value)
 		
 		if (configData.modifyValue.invoke(configContext, key)) {
 			configData.valueChanged.invoke(configContext)
@@ -125,6 +143,14 @@ class Config(private val auriel: Auriel) {
 	}
 	
 	fun hasKey(key: String) = configData.containsKey(key)
+	
+	fun getDefaultMessageCreateData(key: String): MessageCreateData =
+		defaultComponents.computeIfAbsent(key) { key ->
+			val path = "/components/${key.replace(':', '/')}.json"
+			javaClass.getResourceAsStream(path)?.bufferedReader()?.use {
+				it.readText().toMessageCreateData()
+			} ?: throw NoSuchElementException("No default MessageCreateData found for $key at path $path")
+		}
 	
 	init {
 		createGuildConfigData {
@@ -426,6 +452,34 @@ class Config(private val auriel: Auriel) {
 			description = "The default language that users will use in this server."
 			defaultValue = "enUS"
 			allowedTypes(ConfigDataType.STRING)
+		}
+		createGuildConfigData {
+			key = "guild:clone:helpee-instructions"
+			permission = Permission.MANAGE_SERVER
+			description = "The default MessageCreateData sent in the helpee channel with the instructions as a pinned message."
+			defaultValue = getDefaultMessageCreateData(key)
+			allowedTypes(ConfigDataType.MESSAGE_CREATE_DATA)
+		}
+		createGuildConfigData {
+			key = "guild:clone:helpee-game-info"
+			permission = Permission.MANAGE_SERVER
+			description = "The default MessageCreateData sent in a helpee's private thread just after submitting their request."
+			defaultValue = getDefaultMessageCreateData(key)
+			allowedTypes(ConfigDataType.MESSAGE_CREATE_DATA)
+		}
+		createGuildConfigData {
+			key = "guild:clone:helper-instructions"
+			permission = Permission.MANAGE_SERVER
+			description = "The default MessageCreateData sent in the helper channel with the instructions as a pinned message."
+			defaultValue = getDefaultMessageCreateData(key)
+			allowedTypes(ConfigDataType.MESSAGE_CREATE_DATA)
+		}
+		createGuildConfigData {
+			key = "guild:clone:helper-game-info"
+			permission = Permission.MANAGE_SERVER
+			description = "The default MessageCreateData sent in a helper's private thread just after being assigned to a request."
+			defaultValue = getDefaultMessageCreateData(key)
+			allowedTypes(ConfigDataType.MESSAGE_CREATE_DATA)
 		}
 	}
 

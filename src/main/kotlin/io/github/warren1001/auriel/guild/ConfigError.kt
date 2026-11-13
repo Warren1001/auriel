@@ -6,6 +6,7 @@ enum class ConfigError {
 	NOT_FOUND,
 	NO_PERMISSION,
 	INVALID_DATA_TYPE,
-	CUSTOM
+	CUSTOM,
+	PARSING_ERROR,
 	
 }

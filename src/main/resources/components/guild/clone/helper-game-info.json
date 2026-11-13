@@ -1,0 +1,75 @@
+{
+  "flags": 32768,
+  "components": [
+    {
+      "type": 17,
+      "accent_color": 16711680,
+      "components": [
+        {
+          "type": 10,
+          "content": "### You have been assigned to help *{helpeeName}*."
+        },
+        {
+          "type": 14,
+          "divider": true,
+          "spacing": 2
+        },
+        {
+          "type": 10,
+          "content": "**Game Name**: ```{gameName}```\n**Password**: ```{password}```\n**Server**: {server}\n**Clone Location**: {location}\n**Furthest Accessible Act**: {furthestAct}"
+        },
+        {
+          "type": 14,
+          "divider": true,
+          "spacing": 2
+        },
+        {
+          "type": 10,
+          "content": "**After helping**, select the applicable option to complete the request."
+        },
+        {
+          "type": 1,
+          "components": [
+            {
+              "type": 2,
+              "style": 2,
+              "label": "Join their private thread",
+              "custom_id": "clone:helper:join"
+            }
+          ]
+        },
+        {
+          "type": 1,
+          "components": [
+            {
+              "custom_id": "clone:helper:compl",
+              "type": 3,
+              "options": [
+                {
+                  "label": "No problems",
+                  "value": "clone:helper:compl:good"
+                },
+                {
+                  "label": "Dropped for multiple players",
+                  "value": "clone:helper:compl:multi"
+                },
+                {
+                  "label": "AFK",
+                  "value": "clone:helper:compl:afk"
+                },
+                {
+                  "label": "Empty game / already slain",
+                  "value": "clone:helper:compl:empty"
+                },
+                {
+                  "label": "Can't kill / gave up / must leave",
+                  "value": "clone:helper:compl:fail"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

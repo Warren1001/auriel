@@ -1,0 +1,64 @@
+{
+  "flags": 32768,
+  "components": [
+    {
+      "type": 17,
+      "accent_color": 16711680,
+      "components": [
+        {
+          "type": 10,
+          "content": "# Diablo Clone / World Event\nIf you need help slaying Diablo Clone / Uber Diablo, read the following instructions then click the button."
+        },
+        {
+          "type": 14,
+          "divider": false,
+          "spacing": 2
+        },
+        {
+          "type": 10,
+          "content": "## What to Do\n1. Create a game before Diablo Invades Sanctuary (6/6).\n  - The game must be made in Hell difficulty on the correct region.\n  - The game should be a lobby game and have a unique & unguessable game name with a relatively simple but still unique password. `dclone1//1` is highly likely to get sniped and stolen by randoms trying random game names. `qwerty54//qz` would be a decent example of game name and password. Unique game names but simple passwords make it easier for helpers to join the game. If you did not make a lobby game, you can find your game name by opening the Party Screen (P) and clicking the eye to reveal your game's password. The password is the same as the game name. The **G** is uppercase while the **ame** are lowercase.\n  - The game needs to be made without a level requirement and with a player limit larger than 1, otherwise helpers will be restricted from joining your game!\n2. Helpers prefer spawning Diablo where they prefer, so please avoid spawning him. Remain in town if you do not know how his spawn logic works. If he snuck up on you when you weren't expecting him, that's okay.\n3. Click the button below to use the automated system. A helper will be assigned to you automatically as they're available.\n4. If you're requesting help while in a game with multiple players, the helper has zero expectation to make sure the Annihilus gets to you."
+        },
+        {
+          "type": 14,
+          "divider": false,
+          "spacing": 2
+        },
+        {
+          "type": 10,
+          "content": "## Other Info\n- Do not publicly broadcast your game name and password. Thieves do exist.\n- If you don't want to wait in line, you can try direct messaging anyone saying that is offering their help, but they will not be trusted and there is a risk your Annihilus may be stolen. If someone steals your Annihilus, tell a moderator immediately, but there is no guarantee a replacement Annihilus will be found for you.\n- Please tell a moderator immediately if your helper identifies your Annihilus for you, this is thief behavior regardless of them giving it to you.\n- If you have multiple Diablo Clones to slay, you may submit one at at a time and then join the queue at the end of the line again. Once the queue is empty, helpers can help you with any remaining all at once."
+        },
+        {
+          "type": 14,
+          "divider": false,
+          "spacing": 2
+        },
+        {
+          "type": 10,
+          "content": "## Queues\n{queueList}"
+        },
+        {
+          "type": 14,
+          "divider": false,
+          "spacing": 2
+        },
+        {
+          "type": 1,
+          "components": [
+            {
+              "type": 2,
+              "style": 1,
+              "label": "Request Help",
+              "custom_id": "clone:helpee-request:make"
+            },
+            {
+              "type": 2,
+              "style": 4,
+              "label": "Cancel Request",
+              "custom_id": "clone:helpee-request:cancel"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

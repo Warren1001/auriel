@@ -7,10 +7,11 @@ class ModalInteractionHandler {
 	
 	fun onModalInteraction(event: ModalInteractionEvent) {
 		if (!event.isFromGuild) return
-		val modalId = event.modalId
+		//val modalId = event.modalId
 		val guild = event.guild!!.a()
-		guild.cloneHandler.onModalSubmit(event)
-		print("modal submitted")
+		val cloneHandler = guild.cloneHandler
+		if (cloneHandler != null && cloneHandler.onModalInteraction(event)) return
+		//print("modal submitted")
 	}
 	
 }

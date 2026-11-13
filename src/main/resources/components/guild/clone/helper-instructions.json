@@ -1,0 +1,45 @@
+{
+  "flags": 32768,
+  "components": [
+    {
+      "type": 17,
+      "accent_color": 16711680,
+      "components": [
+        {
+          "type": 10,
+          "content": "# Diablo Clone Helpers\nRead the following information before clicking the button to help others."
+        },
+        {
+          "type": 10,
+          "content": "## The Process\n1. Clicking the button will open up a temporary private thread under this channel that only you and moderators can see. All interactions will be done in this thread.\n2. You will provide category information for what Diablo Clones you can help with, such as device, mode, core, and ladder type. You can only specify one category at a time. If you want to help others in a different category, you will have to withdraw entirely from helping and start the process from the beginning with the new category information.\n3. After you have input the category information, you will be automatically given your first helpee's game information and the helpee will be notified you are assigned to them in their own private thread.\n4. Simply join the game and slay Diablo Clone like you normally would.\n5. Once you're done, you can mark the request as completed or something else, in case the helpee is AFK and not accepting their Annihilus or something else. The moment you mark it as complete, the next helpee's information will pop up, and you will expel the previous helpee from the queue.\n6. If there is a problem with joining the game or you would like to ping them in Discord to get their attention, you can click the button to take you to their private channel. You are free to chat in there and do whatever you need to do to progress the queue.\n7. Once you are done helping, please withdraw from helping using the button, do not just leave yourself showing as helping.\n8. If you have questions, comments, or problems, bring it up with Warren."
+        },
+        {
+          "type": 10,
+          "content": "## Guidelines\n- Do not identify a helpee's Annihilus without permission. This will be interpreted as trying to steal it. Helpees are instructed to report you for doing this.\n- Helpees can declare you as suspicious which will immediately lock you out of the queue. If a helpee abuses this, let Warren know immediately and they will be banned.\n- If a helpee is AFK and not accepting their Annihilus, it is okay to leave a message for them in-game or on Discord, mark them as AFK, and then continue the queue, holding their Annihilus. You can give it to them once they've returned and you're available to do so.\n- Helpees will have a button to vouch you after you've marked the request as complete. It will be difficult for them to ignore it, so you don't have to encourage them to vouch you if you don't want to and there is no need to walk them through the process of vouching."
+        },
+        {
+          "type": 14,
+          "divider": true,
+          "spacing": 2
+        },
+        {
+          "type": 1,
+          "components": [
+            {
+              "type": 2,
+              "style": 1,
+              "label": "Begin Helping",
+              "custom_id": "clone:helper:begin"
+            },
+            {
+              "type": 2,
+              "style": 4,
+              "label": "Stop Helping",
+              "custom_id": "clone:helper:stop"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

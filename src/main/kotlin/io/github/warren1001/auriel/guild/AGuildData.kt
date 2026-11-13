@@ -1,8 +1,12 @@
 package io.github.warren1001.auriel.guild
 
+import com.fasterxml.jackson.annotation.JsonInclude
+import io.github.warren1001.auriel.d2.clone.CloneData
+import io.github.warren1001.auriel.toMessageCreateData
 import io.github.warren1001.auriel.util.filter.SpamFilter
 import io.github.warren1001.auriel.util.filter.WordFilter
 import io.github.warren1001.auriel.util.youtube.YoutubeData
+import net.dv8tion.jda.api.utils.messages.MessageCreateData
 
 data class AGuildData(
 	val _id: String,
@@ -13,11 +17,12 @@ data class AGuildData(
 	val vouchBlacklist: MutableSet<String> = mutableSetOf(),
 	val privateChannelData: MutableMap<String, PrivateChannelData> = mutableMapOf(),
 	var youtubeData: YoutubeData = YoutubeData(),
-	var nextVouchId: Long = 0L
+	var nextVouchId: Long = 0L,
+	@JsonInclude(JsonInclude.Include.NON_NULL)
+	var cloneData: CloneData? = null,
 ) {
 	
 	fun set(key: String, value: Any): Boolean {
-		//if (configData[key] == value) return false
 		configData[key] = value
 		return true
 	}
@@ -37,5 +42,17 @@ data class AGuildData(
 	fun getAsString(key: String) = get(key) as String?
 	fun getAsNumber(key: String) = get(key) as Number?
 	fun getAsBoolean(key: String) = get(key) as Boolean?
+	fun getAsMessageCreateData(key: String): MessageCreateData? {
+		var value = get(key) ?: return null
+		when (value) {
+			is MessageCreateData -> return value
+			is String -> {
+				value = value.toMessageCreateData()
+				set(key, value)
+				return value
+			}
+			else -> throw IllegalStateException("Invalid data at key $key: $value")
+		}
+	}
 	
 }

@@ -16,6 +16,7 @@ import io.github.warren1001.d2data.file.D2Lang
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.components.actionrow.ActionRow
 import net.dv8tion.jda.api.components.buttons.Button
+import net.dv8tion.jda.api.entities.Member
 import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.User
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
@@ -164,7 +165,7 @@ class Commands(private val auriel: Auriel) {
 				roleIdsList.forEach { roleIdsByAct[it.key[3].code - 1].add(it) }
 				var randId = 0
 				val lang = guild.data.getAsString("guild:tz-language")!!
-				val messageCreateData = auriel.specialMessageHandler.replyMultiSelectMenuMessage<MutableList<Map.Entry<String, String>>> {
+				val messageCreateData = auriel.specialMessageHandler.replyMultiSelectMenuMessage {
 					userId = it.user.id
 					values = roleIdsByAct
 					format = "What role do you want to use for the Terror Zones in **%s**?"
@@ -233,21 +234,37 @@ class Commands(private val auriel: Auriel) {
 			println("called 1")
 			if (it.subcommandName == "start") {
 				println("called 2")
-				if (guild.cloneHandler.isRunning()) {
+				if (guild.cloneHandler != null) {
 					it.reply_("The Diablo Clone system is already running.").queue_()
 				} else {
 					println("called 3")
 					val helpee = it.getOption("helpee-channel")!!.asChannel.asGuildMessageChannel()
 					val helper = it.getOption("helper-channel")!!.asChannel.asGuildMessageChannel()
 					println("called 4")
-					guild.cloneHandler.start(helpee, helper)
+					guild.startClone(helpee, helper)
 					println("called 5")
-					it.reply_("Started the Diablo Clone system with the helpee message in ${helpee.asMention} and the helper message in ${helper.asMention}.").queue()
+					it.reply_("Started the Diablo Clone system with the helpee message in ${helpee.asMention} and the helper message in ${helper.asMention}.").queue_()
 					println("called 6")
 				}
-			} else {
-				guild.cloneHandler.stop()
-				it.reply_("Stopped the Diablo Clone system if it was running.").queue_()
+			} else if (it.subcommandName == "stop") {
+				if (guild.cloneHandler != null) {
+					guild.stopClone()
+					it.reply_("Stopped the Diablo Clone system.").queue_()
+				} else {
+					it.reply_("No Diablo clone system is currently running.").queue_()
+				}
+			} else if (it.subcommandName == "permit" || it.subcommandName == "release") {
+				if (guild.cloneHandler != null) {
+					val cloneHandler = guild.cloneHandler!!
+					val member = it.getOption("member")!!.asMember!!
+					if (cloneHandler.unrestrict(member)) {
+						it.reply_("${member.effectiveName} is no longer restricted.").queue_()
+					} else {
+						it.reply_("Unable to unrestrict ${member.effectiveName} or they are not restricted.").queue_()
+					}
+				} else {
+					it.reply_("No Diablo clone system is currently running.").queue_()
+				}
 			}
 		}
 		commandActions["pin"] = {
@@ -258,7 +275,7 @@ class Commands(private val auriel: Auriel) {
 				} else {
 					val content = it.getOption("content")!!.asString
 					val repostAfter = it.getOption("repost-after")!!.asInt
-					auriel.specialMessageHandler.sendPinMessage(repostAfter, channel, content)
+					auriel.specialMessageHandler.sendPinMessage(repostAfter, channel, MessageCreate(content))
 					it.reply_("Successfully created pinned message!").queue_()
 				}
 			} else if (it.subcommandName == "delete") {
@@ -362,13 +379,19 @@ class Commands(private val auriel: Auriel) {
 					option<String>("name", "The name of the timer to stop.", required = true, autocomplete = true)
 				}
 			}
-			slash("clone", "Start or stop the DClone system.") {
+			slash("clone", "Interact with the Diablo Clone system.") {
 				restrict(true)
 				subcommand("start", "Start the DClone system.") {
 					option<GuildMessageChannel>("helpee-channel", "The channel to post the Request Help message.", required = true)
 					option<GuildMessageChannel>("helper-channel", "The channel to post the Give Help message.", required = true)
 				}
 				subcommand("stop", "Stop the DClone system.")
+				subcommand("permit", "Unrestrict a restricted helper.") {
+					option<Member>("member", "The user to unrestrict.", required = true)
+				}
+				/*subcommand("release", "Unrestrict a restricted helper.") {
+					option<Member>("member", "The user to unrestrict.", required = true)
+				}*/
 			}
 			slash("vouch", "Give another user a vouch.") {
 				restrict(true)
@@ -561,6 +584,9 @@ class Commands(private val auriel: Auriel) {
 				ConfigError.NO_PERMISSION -> {
 					it.reply_("You do not have permission to set this option.").queue_()
 				}
+				ConfigError.PARSING_ERROR -> {
+					it.reply_("The value provided could not parse into its internal object (invalid JSON format?).").queue_()
+				}
 				ConfigError.CUSTOM -> {}
 			}
 		}
@@ -751,6 +777,9 @@ class Commands(private val auriel: Auriel) {
 				}
 				ConfigError.NO_PERMISSION -> {
 					it.reply_("You do not have permission to set this option.").queue_()
+				}
+				ConfigError.PARSING_ERROR -> {
+					it.reply_("The value provided could not parse into its internal object (invalid JSON format?).").queue_()
 				}
 				ConfigError.CUSTOM -> {}
 			}

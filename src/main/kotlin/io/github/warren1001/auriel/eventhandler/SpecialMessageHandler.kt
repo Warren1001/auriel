@@ -2,10 +2,7 @@ package io.github.warren1001.auriel.eventhandler
 
 import io.github.warren1001.auriel.Auriel
 import io.github.warren1001.auriel.a
-import io.github.warren1001.auriel.countMatches
-import io.github.warren1001.auriel.d2.clone.InteractionRelation
 import io.github.warren1001.auriel.util.*
-import net.dv8tion.jda.api.components.MessageTopLevelComponent
 import net.dv8tion.jda.api.components.selections.SelectOption
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.User
@@ -25,14 +22,21 @@ class SpecialMessageHandler(private val auriel: Auriel) {
 	private val singleMessages: MutableMap<String, SingleMessage> = mutableMapOf()
 
 	fun handleSelectMenu(event: StringSelectInteractionEvent) {
+		/*
 		if (event.componentId.countMatches(":") > 2) {
 			val guildId = event.componentId.split(':')[1]
 			if (auriel.guilds.getGuild(guildId).cloneHandler.onStringSelectSelection(event) == InteractionRelation.RELATED) return
 		}
+		*/
 		if (!event.isFromGuild) return
+		val guild = event.guild!!
+		val cloneHandler = guild.a().cloneHandler
+		if (cloneHandler != null && cloneHandler.onStringSelectInteraction(event)) return
+		/*
 		if (event.componentId.contains(":")) {
 			if (event.guild!!.a().cloneHandler.onStringSelectSelection(event) == InteractionRelation.RELATED) return
 		}
+		*/
 		if (event.componentId.contains("-")) {
 			val id = event.componentId.substringBefore("-")
 			multiSelectMessages[id]?.handleSelectMenu(event)?.let {
@@ -91,8 +95,8 @@ class SpecialMessageHandler(private val auriel: Auriel) {
 		return pinMessages.contains(channel.id)
 	}
 	
-	fun sendPinMessage(repostAfter: Int, channel: GuildMessageChannel, content: String, components: Collection<MessageTopLevelComponent> = emptyList()): PinMessage {
-		val message = PinMessage(repostAfter, channel, content, components)
+	fun sendPinMessage(repostAfter: Int, channel: GuildMessageChannel, data: MessageCreateData): PinMessage {
+		val message = PinMessage(repostAfter, channel, data)
 		pinMessages[channel.id] = message
 		return message
 	}

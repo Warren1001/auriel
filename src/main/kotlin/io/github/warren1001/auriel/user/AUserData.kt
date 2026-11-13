@@ -1,10 +1,13 @@
 package io.github.warren1001.auriel.user
 
+import io.github.warren1001.auriel.d2.clone.CloneDataHelper
+
 data class AUserData(
 	val _id: String,
-	val userData: MutableMap<String, Any>,
+	val userData: MutableMap<String, Any> = mutableMapOf(),
 	val vouches: MutableList<Vouch> = mutableListOf(),
-	var lastVouch: Long = 0L
+	var lastVouch: Long = 0L,
+	var dataCloneHelper: CloneDataHelper? = null,
 ) {
 	
 	fun verifyDefaults(defaults: Map<String, Any>): Boolean {
@@ -40,6 +43,11 @@ data class AUserData(
 		val newValue = getAsNumber(key).toInt() + amount
 		set(key, newValue)
 		return newValue
+	}
+	
+	fun computeCloneData(): CloneDataHelper {
+		if (dataCloneHelper == null) dataCloneHelper = CloneDataHelper()
+		return dataCloneHelper!!
 	}
 
 }

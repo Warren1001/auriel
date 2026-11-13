@@ -25,6 +25,7 @@ import net.dv8tion.jda.api.entities.MessageEmbed
 import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.channel.ChannelType
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
+import net.dv8tion.jda.api.events.channel.ChannelDeleteEvent
 import net.dv8tion.jda.api.events.guild.GuildAuditLogEntryCreateEvent
 import net.dv8tion.jda.api.events.guild.GuildBanEvent
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
@@ -45,10 +46,11 @@ class AGuild {
 	val data: AGuildData
 	val textChannelDataCollection: MongoCollection<AGuildMessageChannelData>
 	val tzGuildData: TerrorZoneTrackerGuildData
-	val cloneHandler: CloneHandler
 	val youtubeAnnouncer: YoutubeAnnouncer
 	val users: Users
 	val privateChannelManager: PrivateChannelManager
+	
+	var cloneHandler: CloneHandler? = null
 	
 	private val guildMessageChannels = mutableMapOf<String, AGuildMessageChannel>()
 	//private var lastTZAnnouncement: Message? = null
@@ -60,7 +62,6 @@ class AGuild {
 		data = guilds.guildDataCollection.findOneById(id) ?: AGuildData(id, guilds.guildDataDefaults.toMutableMap())
 		textChannelDataCollection = auriel.database.getCollection("$id-textChannels", AGuildMessageChannelData::class.java)
 		tzGuildData = guilds.tzTrackerRoleCollection.findOneById(id) ?: TerrorZoneTrackerGuildData(id)
-		cloneHandler = CloneHandler(auriel, this)
 		youtubeAnnouncer = YoutubeAnnouncer(auriel, this, data.youtubeData, auriel.youtube)
 		users = Users(auriel, this)
 		privateChannelManager = PrivateChannelManager(this)
@@ -74,7 +75,6 @@ class AGuild {
 		//print("constructing guild $id")
 		textChannelDataCollection = auriel.database.getCollection("$id-textChannels", AGuildMessageChannelData::class.java)
 		tzGuildData = guilds.tzTrackerRoleCollection.findOneById(id) ?: TerrorZoneTrackerGuildData(id)
-		cloneHandler = CloneHandler(auriel, this)
 		youtubeAnnouncer = YoutubeAnnouncer(auriel, this, data.youtubeData, auriel.youtube)
 		users = Users(auriel, this)
 		privateChannelManager = PrivateChannelManager(this)
@@ -90,6 +90,7 @@ class AGuild {
 			}
 		}
 		youtubeAnnouncer.start()
+		// TODO find existing clone data and start it if necessary
 	}
 	
 	fun jda() = auriel.jda.getGuildById(id)!!
@@ -101,6 +102,23 @@ class AGuild {
 	private fun saveTZGuildData() = auriel.guilds.tzTrackerRoleCollection.updateOne(tzGuildData, UpdateOptions().upsert(true))
 	
 	fun saveData() = auriel.guilds.guildDataCollection.updateOne(data, options = UpdateOptions().upsert(true))
+	
+	fun startClone(channelHelpee: GuildMessageChannel, channelHelper: GuildMessageChannel): Boolean {
+		if (cloneHandler == null) {
+			cloneHandler = CloneHandler(auriel, this, channelHelpee, channelHelper)
+			return true
+		}
+		return false
+	}
+	
+	fun stopClone(): Boolean {
+		if (cloneHandler != null) {
+			cloneHandler!!.stop()
+			cloneHandler = null
+			return true
+		}
+		return false
+	}
 	
 	fun setupTZ(/*channelId: String, format: String, */roles: Map<TerrorZoneInfo, Role?>) {
 		tzGuildData.roleIds = roles.filterValues { it != null }.map { it.key.id to it.value!!.id }.toMap()//.mapValues { it.value!!.id }
@@ -117,6 +135,13 @@ class AGuild {
 		} else {
 			auriel.guilds.tzTracker.addGuild(id)
 			event.reply("Terror Zone tracker started!").setEphemeral(true).queue_()
+		}
+	}
+	
+	fun handleChannelDelete(event: ChannelDeleteEvent) {
+		val type = event.channel.type
+		if (type.isGuild && type.isMessage) {
+			event.channel.asGuildMessageChannel().a().handleChannelDelete(event)
 		}
 	}
 	

@@ -1,429 +1,1394 @@
 package io.github.warren1001.auriel.d2.clone
 
-import dev.minn.jda.ktx.interactions.components.StringSelectMenu
+import com.mongodb.client.MongoCollection
+import com.mongodb.client.model.UpdateOptions
 import dev.minn.jda.ktx.interactions.components.TextInput
 import dev.minn.jda.ktx.interactions.components.option
-import dev.minn.jda.ktx.interactions.components.replyModal
-import dev.minn.jda.ktx.messages.edit
+import dev.minn.jda.ktx.messages.MessageCreate
+import dev.minn.jda.ktx.messages.MessageEdit
 import dev.minn.jda.ktx.messages.reply_
+import dev.minn.jda.ktx.messages.send
 import io.github.warren1001.auriel.*
+import io.github.warren1001.auriel.d2.*
 import io.github.warren1001.auriel.guild.AGuild
 import io.github.warren1001.auriel.util.PinMessage
+import net.dv8tion.jda.api.components.Component
 import net.dv8tion.jda.api.components.MessageTopLevelComponent
 import net.dv8tion.jda.api.components.actionrow.ActionRow
+import net.dv8tion.jda.api.components.actionrow.ActionRowChildComponent
 import net.dv8tion.jda.api.components.buttons.Button
+import net.dv8tion.jda.api.components.buttons.ButtonStyle
+import net.dv8tion.jda.api.components.container.Container
+import net.dv8tion.jda.api.components.container.ContainerChildComponent
+import net.dv8tion.jda.api.components.label.Label
+import net.dv8tion.jda.api.components.textdisplay.TextDisplay
 import net.dv8tion.jda.api.components.textinput.TextInputStyle
-import net.dv8tion.jda.api.entities.Guild
-import net.dv8tion.jda.api.entities.Message
-import net.dv8tion.jda.api.entities.User
+import net.dv8tion.jda.api.entities.Member
+import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent
-import net.dv8tion.jda.api.events.interaction.component.GenericComponentInteractionCreateEvent
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent
 import net.dv8tion.jda.api.interactions.components.ComponentInteraction
-import java.util.*
+import net.dv8tion.jda.api.modals.Modal
+import net.dv8tion.jda.api.requests.RestAction
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder
+import net.dv8tion.jda.api.utils.messages.MessageCreateData
+import net.dv8tion.jda.api.utils.messages.MessageEditData
+import org.litote.kmongo.deleteOneById
+import org.litote.kmongo.updateOne
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 
-class CloneHandler(private val auriel: Auriel, private val guild: AGuild) {
+const val ID_BUTTON_HELPEE_REQUEST_MAKE: String = "clone:helpee-request:make"
+const val ID_BUTTON_HELPEE_REQUEST_CANCEL: String = "clone:helpee-request:cancel"
+const val ID_BUTTON_HELPEE_INPUT_OPEN: String = "clone:helpee:input:open"
+const val ID_BUTTON_HELPEE_CONFIRM: String = "clone:helpee:confirm"
+const val ID_BUTTON_HELPEE_REPORT: String = "clone:helpee:report"
+const val ID_BUTTON_HELPEE_VOUCH: String = "clone:helpee:vouch"
+const val ID_BUTTON_HELPEE_FINISH: String = "clone:helpee:finish"
+const val ID_BUTTON_HELPEE_REQUEUE: String = "clone:helpee:requeue"
+const val ID_BUTTON_HELPER_BEGIN: String = "clone:helper:begin"
+const val ID_BUTTON_HELPER_STOP: String = "clone:helper:stop"
+//const val ID_BUTTON_HELPER_RETRY_HELP: String = "clone:helper:retry-help"
+const val ID_BUTTON_HELPER_NEXT: String = "clone:helper:next"
+const val ID_BUTTON_HELPER_SUBMIT: String = "clone:helper:submit"
+const val ID_BUTTON_HELPER_JOIN: String = "clone:helper:join"
+
+const val ID_MESSAGE_HELPEE_INSTRUCTIONS: String = "guild:clone:helpee-instructions"
+const val ID_MESSAGE_HELPER_INSTRUCTIONS: String = "guild:clone:helper-instructions"
+const val ID_MESSAGE_HELPEE_GAME_INFO: String = "guild:clone:helpee-game-info"
+const val ID_MESSAGE_HELPER_GAME_INFO: String = "guild:clone:helper-game-info"
+
+const val ID_MODAL_HELPEE_INPUT: String = "clone:helpee:input"
+const val ID_MODAL_HELPEE_VOUCH: String = "clone:helpee:vouch"
+const val ID_MODAL_HELPEE_REPORT: String = "clone:helpee:report"
+
+const val ID_STRING_SELECT_HELPEE_SELECT_PLATFORM = "clone:helpee:select:platform"
+const val ID_STRING_SELECT_HELPEE_SELECT_SERVER = "clone:helpee:select:server"
+const val ID_STRING_SELECT_HELPEE_SELECT_MODE = "clone:helpee:select:mode"
+const val ID_STRING_SELECT_HELPEE_SELECT_CORE = "clone:helpee:select:core"
+const val ID_STRING_SELECT_HELPEE_SELECT_TYPE = "clone:helpee:select:type"
+val ID_STRING_SELECT_HELPEE_SELECT = setOf(
+	ID_STRING_SELECT_HELPEE_SELECT_PLATFORM,
+	ID_STRING_SELECT_HELPEE_SELECT_SERVER,
+	ID_STRING_SELECT_HELPEE_SELECT_MODE,
+	ID_STRING_SELECT_HELPEE_SELECT_CORE,
+	ID_STRING_SELECT_HELPEE_SELECT_TYPE,
+)
+
+const val ID_STRING_SELECT_HELPER_SELECT_PLATFORM = "clone:helper:select:platform"
+//const val ID_STRING_SELECT_HELPER_SELECT_SERVER = "clone:helper:select:server"
+const val ID_STRING_SELECT_HELPER_SELECT_MODE = "clone:helper:select:mode"
+const val ID_STRING_SELECT_HELPER_SELECT_CORE = "clone:helper:select:core"
+const val ID_STRING_SELECT_HELPER_SELECT_TYPE = "clone:helper:select:type"
+val ID_STRING_SELECT_HELPER_SELECT = setOf(
+	ID_STRING_SELECT_HELPER_SELECT_PLATFORM,
+	//ID_STRING_SELECT_HELPER_SELECT_SERVER,
+	ID_STRING_SELECT_HELPER_SELECT_MODE,
+	ID_STRING_SELECT_HELPER_SELECT_CORE,
+	ID_STRING_SELECT_HELPER_SELECT_TYPE,
+)
+
+const val ID_STRING_SELECT_VALUE_HELPER_COMPLETED_GOOD = "clone:helper:compl:good"
+const val ID_STRING_SELECT_VALUE_HELPER_COMPLETED_MULTIPLE = "clone:helper:compl:multi"
+const val ID_STRING_SELECT_VALUE_HELPER_COMPLETED_AFK = "clone:helper:compl:afk"
+const val ID_STRING_SELECT_VALUE_HELPER_COMPLETED_EMPTY = "clone:helper:compl:empty"
+const val ID_STRING_SELECT_VALUE_HELPER_COMPLETED_FAIL = "clone:helper:compl:fail"
+const val ID_STRING_SELECT_HELPER_COMPLETED = "clone:helper:compl"
+
+class CloneHandler(
+	private val auriel: Auriel,
+	private val guild: AGuild,
+	private val channelHelpee: GuildMessageChannel,
+	private val channelHelper: GuildMessageChannel,
+) {
 	
-	private val queue = Collections.synchronizedList(mutableListOf<CloneInfo>())
-	private val done = mutableMapOf<String, CloneInfo>()
-	private val helpees = mutableMapOf<String, CloneInfo>()
-	private val helpers = mutableMapOf<String, CloneInfo>()
-	private val helperDMs = mutableMapOf<String, Message>()
-	private val helpeeEditors = mutableMapOf<String, Message>()
+	val helpeeDataCollection: MongoCollection<CloneDataHelpee> = auriel.database.getCollection("${guild.id}-clone-helpee", CloneDataHelpee::class.java)
+	val data: CloneData
 	
-	private var helpeeStartButton: Collection<MessageTopLevelComponent>? = null
-	private var helpeeMessageButtons: Collection<MessageTopLevelComponent>? = null
-	private var helpeeScamButton: Collection<MessageTopLevelComponent>? = null
-	private var helpeeVouchButton: Collection<MessageTopLevelComponent>? = null
-	private var helperStartButton: Collection<MessageTopLevelComponent>? = null
-	private var helperMessageButtons: Collection<MessageTopLevelComponent>? = null
-	private var helpeeMessage: PinMessage? = null
-	private var helperMessage: PinMessage? = null
+	val queuesById: MutableMap<String, CloneQueue> = mutableMapOf()
+	val queues: MutableList<CloneQueue> = mutableListOf()
 	
-	private var helped: Int = 0
-	private var fallbackChannelMention: String? = null
+	val helpeeDataById: MutableMap<String, CloneDataHelpee> = mutableMapOf()
 	
-	private var running = false
-	private var lastQueueUpdate = 0L
+	val messageHelpeeInstructions: MessageCreateData = guild.data.getAsMessageCreateData(ID_MESSAGE_HELPEE_INSTRUCTIONS)!!
+	val messageHelperInstructions: MessageCreateData = guild.data.getAsMessageCreateData(ID_MESSAGE_HELPER_INSTRUCTIONS)!!
+	val messageHelpeeGameInfo: MessageCreateData = guild.data.getAsMessageCreateData(ID_MESSAGE_HELPEE_GAME_INFO)!!
+	val messageHelperGameInfo: MessageCreateData = guild.data.getAsMessageCreateData(ID_MESSAGE_HELPER_GAME_INFO)!!
 	
-	fun stop() {
-		running = false
-		queue.clear()
-		helpees.clear()
-		helpers.clear()
-		// TODO maybe edit the DMs?
-		helperDMs.clear()
-		helpeeStartButton = null
-		helpeeMessageButtons = null
-		helpeeScamButton = null
-		helpeeVouchButton = null
-		helperStartButton = null
-		helperMessageButtons = null
-		helpeeMessage?.let { auriel.specialMessageHandler.deletePinMessage(it) }
-		helpeeMessage = null
-		helperMessage?.let { auriel.specialMessageHandler.deletePinMessage(it) }
-		helperMessage = null
-		helped = 0
-		lastQueueUpdate = 0L
-	}
+	private var messagePinHelpee: PinMessage? = null
+	private var messagePinHelper: PinMessage? = null
 	
-	fun start(helpeeChannel: GuildMessageChannel, helperChannel: GuildMessageChannel) {
-		println("clone 0")
-		helpeeStartButton = listOf(ActionRow.of(
-			Button.primary("clone:helpee-request", guild.data.getAsString("guild:clone:request-help-button")!!),
-			//Button.danger("clone:helpee-cancel", guild.data.getAsString("guild:clone:helpee-cancel-button"))
-		))
-		helpeeMessageButtons = listOf(ActionRow.of(
-			Button.primary("clone:${guild.id}:helpee-edit", guild.data.getAsString("guild:clone:helpee-edit-button")!!),
-			Button.danger("clone:${guild.id}:helpee-cancel", guild.data.getAsString("guild:clone:helpee-cancel-button")!!)
-		))
-		helpeeScamButton = listOf(ActionRow.of(
-			Button.danger("clone:${guild.id}:helpee-scam", guild.data.getAsString("guild:clone:helpee-scam-button")!!)
-		))
-		helpeeVouchButton = listOf(ActionRow.of(
-			Button.success("clone:${guild.id}:helpee-vouch", guild.data.getAsString("guild:clone:helpee-vouch-button")!!)
-		))
-		helperStartButton = listOf(ActionRow.of(
-			Button.primary("clone:helper-begin", guild.data.getAsString("guild:clone:helper-begin-button")!!),
-			//Button.primary("clone:helper-mention", guild.data.getAsString("guild:clone:helper-mention-button")),
-		))
-		helperMessageButtons = listOf(
-			ActionRow.of(
-				Button.primary("clone:${guild.id}:helper-next", guild.data.getAsString("guild:clone:helper-next-button")!!),
-				Button.danger("clone:${guild.id}:helper-done", guild.data.getAsString("guild:clone:helper-done-button")!!)
-			),
-			ActionRow.of(
-				StringSelectMenu("clone:${guild.id}:helper-error", placeholder = "Error") {
-					setRequiredRange(1, 1)
-					option(guild.data.getAsString("guild:clone:afk-kill")!!, "clone:afk-kill")
-					option(guild.data.getAsString("guild:clone:afk-nokill")!!, "clone:afk-nokill")
-					option(guild.data.getAsString("guild:clone:alr-done")!!, "clone:alr-done")
-					option(guild.data.getAsString("guild:clone:game-dne")!!, "clone:game-dne")
-					option(guild.data.getAsString("guild:clone:game-lr")!!, "clone:game-lr")
-					option(guild.data.getAsString("guild:clone:game-pc")!!, "clone:game-pc")
-					//option(guild.data.getAsString("guild:clone:other"), "clone:other") TODO
-				}
-			)
-		)
-		println("clone 1")
-		if (guild.data.has("guild:fallback-channel")) fallbackChannelMention = helpeeChannel.guild.getTextChannelById(guild.data.getAsString("guild:fallback-channel")!!)!!.asMention
-		println("clone 2")
-		helpeeMessage = auriel.specialMessageHandler.sendPinMessage(1, helpeeChannel,
-			guild.data.getAsString("guild:clone:helpee-message")!!.replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()),
-			helpeeStartButton!!)
-		helperMessage = auriel.specialMessageHandler.sendPinMessage(1, helperChannel,
-			guild.data.getAsString("guild:clone:helper-message")!!.replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()),
-			helperStartButton!!)
-		println("clone 3")
-		
-		running = true
-	}
+	private var lastHelpeeMessageUpdate: Long = 0L
 	
-	fun openRequestHelpModal(event: ButtonInteractionEvent) {
-		if (helpers.any { it.value.requesterId == event.user.id }) {
-			event.reply_("It is too late to edit, someone is already helping you.").queue_()
-			return
+	private val valuesById: MutableMap<String, CloneValues> = mutableMapOf()
+	
+	fun saveData(dataHelpee: CloneDataHelpee) = helpeeDataCollection.updateOne(dataHelpee, options = UpdateOptions().upsert(true))
+	
+	fun removeData(dataHelpee: CloneDataHelpee) = helpeeDataCollection.deleteOneById(dataHelpee._id)
+	
+	fun onModalInteraction(event: ModalInteractionEvent): Boolean {
+		if (!event.channelType.isMessage) return false
+		return when (event.modalId) {
+			ID_MODAL_HELPEE_INPUT -> {
+				submitRequest(event)
+				true
+			}
+			ID_MODAL_HELPEE_VOUCH -> {
+				giveVouch(event)
+				true
+			}
+			ID_MODAL_HELPEE_REPORT -> {
+				report(event)
+				true
+			}
+			else -> false
 		}
-		if (helpees.containsKey(event.user.id)) {
-			if (event.componentId == "clone:helpee-request") {
-				event.reply_("You have already requested help. If you need to edit or remove your submission or want to know your queue position, check your direct messages${
-					if (fallbackChannelMention != null) " (or $fallbackChannelMention if you have direct messages disabled)" else ""
-				}.").queue_()
+	}
+	
+	fun report(event: ModalInteractionEvent) {
+		val member = event.member!!
+		val helpee = valuesById[member.id]
+		if (helpee is HelpeeCloneValues) {
+			val request = helpee.request
+			if (request != null) {
+				val helper = request.helper
+				helper.data.restricted = true
+				val actions = mutableListOf<RestAction<out Any>>()
+				actions.add(
+					event.editMessage(MessageEdit {
+						content = "${helpee.member.effectiveName} is reporting a problem."
+					}).flatMap {
+						event.channel.sendMessage("${auriel.warren.asMention} ${helper.member.asMention}")
+					}
+				)
+				if (!helper.deleted) actions.add(helper.thread.removeThreadMember(helper.member))
+				helper.request?.let { actions.add(it.helpee.thread.removeThreadMember(helper.member)) }
+				//actions.add(helpee.thread.addThreadMember(auriel.warren))
+				//actions.add(helpee.thread.addThreadMember(helper.member))
+				RestAction.allOf(actions).queue_()
+			} else {
+				event.reply_("You were not being helped with Diablo Clones.").queue_()
+			}
+		} else {
+			event.reply_("You do not have an active request.").queue_()
+		}
+	}
+	
+	fun unrestrict(member: Member): Boolean {
+		val data = member.a().data.dataCloneHelper
+		if (data != null && data.restricted) {
+			data.restricted = false
+			return true
+		} else {
+			return false
+		}
+	}
+	
+	fun giveVouch(event: ModalInteractionEvent) {
+		val member = event.member!!
+		val helpee = valuesById[member.id]
+		if (helpee is HelpeeCloneValues) {
+			val request = helpee.request
+			if (request != null) {
+				val helper = request.helper
+				request.hasBeenVouched = true
+				val reason = event.getValue("vouch")!!.asString
+				if (helper.member.a().giveVouch(helpee.member, reason, true)) {
+					event.deferReply().flatMap { hook ->
+						channelHelpee.sendMessage("${helpee.member.asMention} has given ${helper.member.asMention} a vouch for: **$reason**.").flatMap {
+							hook.editOriginal(MessageEdit {
+								content = "You gave **${helper.member.effectiveName}** a vouch with the reason: `$reason`\n\n" +
+										"Your request is finished and this channel will be deleted momentarily..."
+							})
+						}
+					}.delay(3, TimeUnit.SECONDS).queue_ { finishRequest(request) }
+				} else {
+					event.reply_("Unable to give vouch, there's a mistake somewhere.\n\n" +
+							"Your request is finished and this channel will be deleted momentarily...")
+						.delay(3, TimeUnit.SECONDS).queue_ { finishRequest(request) }
+				}
+			} else {
+				event.reply_("You were not being helped with Diablo Clones.").queue_()
+			}
+		} else {
+			event.reply_("You do not have an active request.").queue_()
+		}
+	}
+	
+	fun finishRequest(request: CloneRequest) {
+		val helpee = request.helpee
+		val helper = request.helper
+		/*helpee.data.queue?.let {
+			helpee.data.queue = null
+		}*/
+		helper.request?.let { if (it == request) helper.request = null }
+		deleteHelpeeData(helpee.member)
+		valuesById.remove(helpee.member.id)
+		helpee.deleted = true
+		helpee.thread.let {
+			it.parentMessageChannel.asTextChannel().deletePersonalThread(helpee.member)
+		}
+		queueUpdated()
+	}
+	
+	fun onButtonInteraction(event: ButtonInteractionEvent): Boolean {
+		if (!event.channelType.isMessage) return false
+		val member = event.member!!
+		when (event.customId) {
+			ID_BUTTON_HELPEE_REQUEST_MAKE -> {
+				makeRequest(event)
+				return true
+			}
+			ID_BUTTON_HELPEE_REQUEST_CANCEL -> {
+				cancelRequest(event)
+				return true
+			}
+			ID_BUTTON_HELPEE_INPUT_OPEN -> {
+				val helpee = valuesById[member.id]
+				if (helpee is HelpeeCloneValues) {
+					if (helpee.request != null) {
+						event.reply_("You already have a helper assigned, so it is too late to update the information.").queue_()
+						return true
+					}
+					event.replyModal(createModalHelpeeInput(helpee)).queue_()
+				} else {
+					event.reply_("You do not have a pending request.").queue_()
+				}
+				return true
+			}
+			ID_BUTTON_HELPER_BEGIN -> {
+				beginHelping(event)
+				return true
+			}
+			ID_BUTTON_HELPER_STOP -> {
+				stopHelping(event)
+				return true
+			}
+			ID_BUTTON_HELPER_SUBMIT -> {
+				tryFinishHelperSelections(event)
+				return true
+			}
+			ID_BUTTON_HELPER_JOIN -> {
+				val helper = valuesById[member.id]
+				if (helper is HelperCloneValues) {
+					if (helper.data.restricted) {
+						event.reply_("Restricted.").queue_()
+						return true
+					}
+					val request = helper.request
+					if (request != null) {
+						val helpee = request.helpee
+						val thread = helpee.thread
+						thread.addThreadMember(helper.member).flatMap {
+							event.reply_ {
+								content = "Click the button below to go to ${thread.asMention}, *${helpee.member.effectiveName}*'s private thread."
+								actionRow {
+									linkButton("https://discord.com/channels/${thread.guild.id}/${thread.id}", "Go to Private Thread")
+								}
+							}
+						}.queue_()
+					} else {
+						event.reply_ {
+							content = "You are not currently helping with Diablo Clones."
+						}.queue_()
+					}
+				} else {
+					event.reply_ {
+						content = "You are not currently helping with Diablo Clones."
+					}.queue_()
+				}
+				return true
+			}
+			ID_BUTTON_HELPEE_CONFIRM -> {
+				val helpee = valuesById[member.id]
+				if (helpee is HelpeeCloneValues) {
+					val request = helpee.request
+					if (request != null) {
+						val helper = request.helper
+						event.editMessage(MessageEdit {
+							content = if (helpee.allowRequeue) {
+								"Your request is complete. Since the request was marked as a failure, you can jump back into the queue at the front of the line, or just finish the request."
+							} else {
+								"Your request is complete. You can give a vouch to **${helper.member.effectiveName}** as thanks, or just finish the request."
+							}
+							actionRow {
+								if (helpee.allowRequeue) {
+									button(ButtonStyle.SUCCESS, ID_BUTTON_HELPEE_REQUEUE, "Re-queue")
+								} else {
+									button(ButtonStyle.SUCCESS, ID_BUTTON_HELPEE_VOUCH, "Give Vouch")
+								}
+								button(ButtonStyle.SECONDARY, ID_BUTTON_HELPEE_FINISH, "Finish")
+							}
+						}).queue_()
+					} else {
+						event.reply_ {
+							content = "You were not being helped with Diablo Clones."
+						}.queue_()
+					}
+				} else {
+					event.reply_ {
+						content = "You do not have an active request."
+					}.queue_()
+				}
+				return true
+			}
+			ID_BUTTON_HELPEE_REPORT -> {
+				val helpee = valuesById[member.id]
+				if (helpee is HelpeeCloneValues) {
+					val request = helpee.request
+					if (request != null) {
+						val helper = request.helper
+						event.replyModal(
+							Modal.create(ID_MODAL_HELPEE_REPORT, "Report a problem")
+								.addComponents(
+									TextDisplay.of("Are you sure there's a big problem?\n" +
+											"If you were AFK, ${helper.member.effectiveName} is likely holding the Annihilus for you.\n\n" +
+											"**Note:** The moment you press Submit, you will lock the helper out of the system. Deliberate abuse of this system will result in an instant ban. " +
+											"This system is for emergencies only.\n" +
+											"If this is in error, press Cancel and nothing will happen.\n\n" +
+											"If you're sure you were scammed, stolen from, or something similar, hit Submit then describe the problem. Do not press Submit for any other reason.")
+								)
+								.build()
+						).queue_()
+					} else {
+						event.reply_ {
+							content = "You were not being helped with Diablo Clones."
+						}.queue_()
+					}
+				} else {
+					event.reply_ {
+						content = "You do not have an active request."
+					}.queue_()
+				}
+				return true
+			}
+			ID_BUTTON_HELPER_NEXT -> {
+				val helper = valuesById[member.id]
+				if (helper is HelperCloneValues) {
+					if (helper.data.restricted) {
+						event.reply_("Restricted.").queue_()
+						return true
+					}
+					helpNext(helper, event)
+				} else {
+					event.reply_ {
+						content = "You are not currently helping with Diablo Clones."
+					}.queue_()
+				}
+				return true
+			}
+			ID_BUTTON_HELPEE_VOUCH -> {
+				val helpee = valuesById[member.id]
+				if (helpee is HelpeeCloneValues) {
+					val request = helpee.request
+					if (request != null) {
+						val helper = request.helper
+						if (!request.hasBeenVouched) {
+							event.replyModal(
+								Modal.create(ID_MODAL_HELPEE_VOUCH, "Give a Vouch")
+									.addComponents(
+										TextDisplay.of("If you'd like to give *${helper.member.effectiveName}* a vouch, which adds to their record of helping the community, you can do so here.\n" +
+												"Write a vouch reason you would like to be included. It can be a simple thanks, the stats of your Annihilus, or nothing at all.\n" +
+												"Empty reasons will default to **Diablo Clone** as the reason.\n" +
+												"The vouch will be visible to all in the clone assistance channel."),
+										Label.of(
+											"Vouch Reason",
+											TextInput("vouch", TextInputStyle.SHORT, required = false, placeholder = "Diablo Clone")
+										)
+									).build()
+							).queue_()
+						} else {
+							event.reply_ {
+								content = "Nice try, but you already vouched *${helper.member.effectiveName}*."
+							}.queue_()
+						}
+					} else {
+						event.reply_ {
+							content = "You were not being helped with Diablo Clones."
+						}.queue_()
+					}
+				} else {
+					event.reply_ {
+						content = "You do not have an active request."
+					}.queue_()
+				}
+				return true
+			}
+			ID_BUTTON_HELPEE_FINISH -> {
+				val helpee = valuesById[member.id]
+				if (helpee is HelpeeCloneValues) {
+					val request = helpee.request
+					if (request != null) {
+						event.deferEdit().queue_ { finishRequest(request) }
+					} else {
+						event.reply_ {
+							content = "You were not being helped with Diablo Clones."
+						}.queue_()
+					}
+				} else {
+					event.reply_ {
+						content = "You do not have an active request."
+					}.queue_()
+				}
+				return true
+			}
+			ID_BUTTON_HELPEE_REQUEUE -> {
+				val helpee = valuesById[member.id]
+				if (helpee is HelpeeCloneValues) {
+					if (helpee.allowRequeue) {
+						requeue(helpee, event)
+						helpee.allowRequeue = false
+					} else {
+						event.reply_ {
+							content = "You are not allowed to re-queue from this state."
+						}.queue_()
+					}
+				} else {
+					event.reply_ {
+						content = "You do not have an active request."
+					}.queue_()
+				}
+				return true
+			}
+		}
+		return false
+	}
+	
+	fun helpNext(helper: HelperCloneValues, event: ComponentInteraction? = null) {
+		val queue = helper.data.queue!!
+		val helpee = queue.pollHelpee()
+		val isHelpeeNull = helpee == null
+		val messageEmpty =
+			if (event != null) "The ${queue.getDisplayName()} queue is currently empty, you will be notified once you're assigned to someone that joins the queue."
+			else "The requester suddenly cancelled their request. The ${queue.getDisplayName()} queue is currently empty, you will be notified once you're assigned to someone that joins the queue."
+		if (event != null) {
+			event.editMessage(MessageEdit {
+				useComponentsV2 = true
+				container {
+					if (isHelpeeNull) {
+						text { content = messageEmpty }
+					} else {
+						text { content = "You have been assigned to help **${helpee.member.effectiveName}**." }
+					}
+				}
+			}).queue_()
+		} else {
+			if (isHelpeeNull) {
+				helper.thread.sendMessage(MessageCreate {
+					useComponentsV2 = true
+					container {
+						text { content = messageEmpty }
+					}
+				}).queue_()
+			}
+		}
+		if (isHelpeeNull) {
+			queue.helpersWaiting.add(helper)
+		} else {
+			startHelpProcess(helpee, helper)
+		}
+		queueUpdated()
+	}
+	
+	fun requeue(helpee: HelpeeCloneValues, event: ComponentInteraction? = null) {
+		val queue = helpee.data.queue!!
+		var helper: HelperCloneValues? = null
+		synchronized(queue.helpersWaiting) {
+			if (queue.helpersWaiting.isNotEmpty()) {
+				helper = queue.pollRandomWaitingHelper()!!
+			}
+		}
+		val isHelperNull = helper == null
+		val message =
+			if (isHelperNull) "You have been returned to the front of the queue. You should receive help shortly."
+			else "The previous helper spontaneously left. **${helper.member.effectiveName}** is now your helper."
+		if (event != null) {
+			event.editMessage(message).setComponents().queue_()
+		} else {
+			helpee.thread.sendMessage(message).queue_()
+		}
+		if (isHelperNull) {
+			queue.addHelpeeToFront(helpee)
+			queueUpdated()
+		} else {
+			startHelpProcess(helpee, helper, true)
+		}
+	}
+	
+	fun onStringSelectInteraction(event: StringSelectInteractionEvent): Boolean {
+		if (!event.channelType.isMessage) return false
+		val customId = event.customId
+		return when (customId) {
+			in ID_STRING_SELECT_HELPEE_SELECT -> {
+				onStringSelectInteractionHelpee(event)
+				true
+			}
+			in ID_STRING_SELECT_HELPER_SELECT -> {
+				onStringSelectInteractionHelper(event)
+				true
+			}
+			ID_STRING_SELECT_HELPER_COMPLETED -> {
+				onStringSelectInteractionHelperCompleted(event)
+				true
+			}
+			else -> false
+		}
+	}
+	
+	fun onStringSelectInteractionHelperCompleted(event: StringSelectInteractionEvent) {
+		val member = event.member!!
+		val idMember = member.id
+		val helper = valuesById[idMember]
+		if (helper is HelperCloneValues) {
+			if (helper.data.restricted) {
+				event.reply_("Restricted.").queue_()
 				return
 			}
-			val info = helpees[event.user.id]!!
-			if (!helpeeEditors.containsKey(event.user.id)) {
-				queue.remove(info)
-				if (event.guild != null) event.member!!.dm("Editing your Diablo Clone help request...\n\n" +
-						"If you can read this message, you have not submitted your edit yet. Please return to the edit page and press `Confirm` to submit your edit." +
-						" Your request cannot be processed until you have submitted your edit.", callback = { helpeeEditors[event.user.id] = it })
-				else event.user.dm("Editing your Diablo Clone help request...\n\n" +
-						"If you can read this message, you have not submitted your edit yet. Please return to the edit page and press `Confirm` to submit your edit." +
-						" Your request cannot be processed until you have submitted your edit.").queue_ { helpeeEditors[event.user.id] = it }
+			if (helper.request != null) {
+				val request = helper.request!!
+				val helpee = request.helpee
+				var textHelpee: String?
+				var textHelper: String?
+				var success: Boolean
+				var includeLink = false
+				val threadHelpee = helpee.thread
+				when (event.values[0]) {
+					ID_STRING_SELECT_VALUE_HELPER_COMPLETED_GOOD -> {
+						textHelpee = "**${helper.member.effectiveName}** has marked the request as completed successfully.\n" +
+								"You can either confirm the result or report a scam/thief."
+						textHelper = "You marked ${helpee.member.effectiveName}'s request as completed successfully."
+						success = true
+						threadHelpee.removeThreadMember(helper.member).queue_()
+					}
+					ID_STRING_SELECT_VALUE_HELPER_COMPLETED_MULTIPLE -> {
+						textHelpee = "**${helper.member.effectiveName}** has marked the request as completed successfully, " +
+								"but there were multiple players in the game so the Annihilus may have been claimed by another.\n" +
+								"You can either confirm the result or report a scam/thief."
+						textHelper = "You marked ${helpee.member.effectiveName}'s request as completed successfully but uncertain if the requester got the Annihilus due to multiple players present."
+						success = true
+						threadHelpee.removeThreadMember(helper.member).queue_()
+					}
+					ID_STRING_SELECT_VALUE_HELPER_COMPLETED_AFK -> {
+						textHelpee = "**${helper.member.effectiveName}** has marked the request as completed successfully but you were AFK.\n" +
+								"They are holding your Annihilus for you until you return. Simply @mention them here (see their username in the member list on the right) and " +
+								"let them know you've returned and the two of you can organize meeting up for your Annihilus once they are available to.\n" +
+								"You can either confirm the result or report a scam/thief."
+						textHelper = "You marked ${helpee.member.effectiveName}'s request as completed successfully but the player was AFK."
+						success = true
+						includeLink = true
+						threadHelpee.addThreadMember(helper.member).queue_()
+					}
+					ID_STRING_SELECT_VALUE_HELPER_COMPLETED_EMPTY -> {
+						textHelpee = "**${helper.member.effectiveName}** has marked the request as unable to be completed due to the game being empty or Diablo Clone was already slain.\n" +
+								"You can either confirm the result or report a scam/thief."
+						textHelper = "You marked ${helpee.member.effectiveName}'s request as unable to be completed due to the game being empty or Diablo Clone was already slain."
+						success = false
+						threadHelpee.removeThreadMember(helper.member).queue_()
+					}
+					ID_STRING_SELECT_VALUE_HELPER_COMPLETED_FAIL -> {
+						textHelpee = "**${helper.member.effectiveName}** has marked the request as unable to be completed due to not being able to kill Diablo Clone or urgently needing to leave.\n" +
+								"You can either confirm the result or report a scam/thief."
+						textHelper = "You marked ${helpee.member.effectiveName}'s request as unable to be completed due to not being able to kill Diablo Clone or urgently needing to leave."
+						success = false
+						helpee.allowRequeue = true
+						threadHelpee.removeThreadMember(helper.member).queue_()
+					}
+					else -> {
+						event.reply_("Unknown interaction, Warren broke something.").queue_()
+						return
+					}
+				}
+				
+				helpee.thread.send {
+					content = textHelpee
+					actionRow {
+						button(ButtonStyle.SUCCESS, ID_BUTTON_HELPEE_CONFIRM, "Confirm")
+						button(ButtonStyle.DANGER, ID_BUTTON_HELPEE_REPORT, "Report a problem")
+					}
+				}.queue_()
+				
+				event.editMessage(MessageEdit {
+					useComponentsV2 = true
+					container {
+						text { content = textHelper }
+						actionRow {
+							button(ButtonStyle.PRIMARY, ID_BUTTON_HELPER_NEXT, "Next Request")
+							button(ButtonStyle.DANGER, ID_BUTTON_HELPER_STOP, "Stop Helping")
+							if (includeLink) linkButton("https://discord.com/channels/${threadHelpee.guild.id}/${threadHelpee.id}", "Go to Private Thread")
+						}
+					}
+				}).queue_()
+				if (success) {
+					helper.data.completed += 1
+					helper.member.a().saveData()
+					helpee.data.queue!!.completed += 1
+				}
+				helper.request = null
+				
+			} else {
+				event.reply_("You are not currently assigned to help anyone.").queue_()
 			}
-			println("modal id 1 clone:${guild.id}:request")
-			event.replyModal("clone:${guild.id}:request", "Request Diablo Clone Help") {
-				label("Game Name", description = "Test 1", child = TextInput("game-name", TextInputStyle.SHORT, required = true, value = info.gameName, placeholder = "MyGame1"))
-				label("Game Password", child = TextInput("game-password", TextInputStyle.SHORT, required = true, value = info.password, placeholder = "1"))
-				label("Diablo Spawn", child = TextInput("game-spawn", TextInputStyle.SHORT, required = true, value = info.spawned, placeholder = "Did you spawn DClone already? If so, where? If not, write no."))
-				label("Act Access", child = TextInput("game-act", TextInputStyle.SHORT, required = true, value = info.furthestAct, placeholder = "What is the last Act in Hell you can access?"))
-				label("Other Info", child = TextInput("game-other", TextInputStyle.PARAGRAPH, required = false, value = info.otherInfo, placeholder = "(optional) Any other information you want to provide"))
-			}.queue_()
 		} else {
-			println("modal id 2 clone:${guild.id}:request")
-			println(guild.id)
-			event.replyModal("clone:${guild.id}:request", "Request Diablo Clone Help") {
-				label("Game Name", child = TextInput("game-name", TextInputStyle.SHORT, required = true, placeholder = "MyGame1"))
-				label("Game Password", child = TextInput("game-password", TextInputStyle.SHORT, required = true, placeholder = "1"))
-				label("Diablo Spawn", child = TextInput("game-spawn", TextInputStyle.SHORT, required = true, placeholder = "Did you spawn DClone already? If so, where? If not, write no."))
-				label("Act Access", child = TextInput("game-act", TextInputStyle.SHORT, required = true, placeholder = "What is the last Act in Hell you can access?"))
-				label("Other Info", child = TextInput("game-other", TextInputStyle.PARAGRAPH, required = false, placeholder = "(optional) Any other information you want to provide"))
-			}.queue_()
+			event.reply_("You are not currently helping with Diablo Clones.").queue_()
 		}
 	}
 	
-	fun isInteractionRelated(event: GenericComponentInteractionCreateEvent): InteractionRelation {
-		val id = event.componentId
-		if (!id.startsWith("clone")) return InteractionRelation.UNRELATED
-		if (id.countMatches(":") > 1 && id.split(':')[1] != guild.id) return InteractionRelation.WRONG_GUILD
-		if (id.countMatches(":") > 2 && id.split(':')[2] != event.user.id) return InteractionRelation.WRONG_USER
-		return InteractionRelation.RELATED
-	}
-	
-	fun isInteractionRelated(event: ModalInteractionEvent): InteractionRelation {
-		val id = event.modalId
-		if (!id.startsWith("clone")) return InteractionRelation.UNRELATED
-		if (id.countMatches(":") > 1 && id.split(':')[1] != guild.id) return InteractionRelation.WRONG_GUILD
-		if (id.countMatches(":") > 2 && id.split(':')[2] != event.user.id) return InteractionRelation.WRONG_USER
-		return InteractionRelation.RELATED
-	}
-	
-	fun onButtonPress(event: ButtonInteractionEvent): InteractionRelation {
-		val relation = isInteractionRelated(event)
-		if (relation == InteractionRelation.RELATED) {
-			when (event.componentId) {
-				"clone:helpee-request" -> openRequestHelpModal(event)
-				"clone:${guild.id}:${event.user.id}:helpee-edit" -> openRequestHelpModal(event)
-				"clone:${guild.id}:${event.user.id}:helpee-cancel" -> cancelRequest(event)
-				"clone:${guild.id}:${event.user.id}:helpee-scam" -> scammed(event)
-				"clone:${guild.id}:${event.user.id}:helpee-vouch" -> vouch(event)
-				"clone:helper-begin" -> doHelping(event)
-				"clone:${guild.id}:helper-next" -> helpNext(event)
-				"clone:${guild.id}:helper-done" -> finishHelping(event)
+	fun onStringSelectInteractionHelper(event: StringSelectInteractionEvent) {
+		val member = event.member!!
+		val idMember = member.id
+		val userA = member.a()
+		val helper = valuesById[idMember]
+		if (helper is HelperCloneValues) {
+			val data = helper.data
+			if (data.restricted) {
+				event.reply_("Restricted.").queue_()
+				return
 			}
-		}
-		return relation
-	}
-	
-	fun finishHelping(event: ComponentInteraction) {
-		helperDMs[event.user.id]?.edit("Thanks for helping :)")?.queue_()
-		helpers.remove(event.user.id)
-		helperDMs.remove(event.user.id)
-	}
-	
-	fun cancelRequest(event: ComponentInteraction) {
-		if (helpees.containsKey(event.user.id)) {
-			val info = helpees[event.user.id]!!
-			queue.remove(info)
-			helpees.remove(event.user.id)
-			event.reply_("Your request has been canceled.").queue_()
+			if (data.selections == null) {
+				data.selections = CloneDataHelperSelection()
+			}
+			val selections = data.selections!!
+			when (event.customId) {
+				ID_STRING_SELECT_HELPER_SELECT_PLATFORM -> {
+					selections.platform = Platform.valueOf(event.selectedOptions[0].value)
+					userA.saveData()
+					//tryFinishHelperSelections(event, helper)
+					event.deferEdit().queue_()
+				}
+				ID_STRING_SELECT_HELPER_SELECT_MODE -> {
+					selections.mode = Mode.valueOf(event.selectedOptions[0].value)
+					userA.saveData()
+					//tryFinishHelperSelections(event, helper)
+					event.deferEdit().queue_()
+				}
+				ID_STRING_SELECT_HELPER_SELECT_CORE -> {
+					selections.core = Core.valueOf(event.selectedOptions[0].value)
+					userA.saveData()
+					//tryFinishHelperSelections(event, helper)
+					event.deferEdit().queue_()
+				}
+				ID_STRING_SELECT_HELPER_SELECT_TYPE -> {
+					selections.type = LadderType.valueOf(event.selectedOptions[0].value)
+					userA.saveData()
+					//tryFinishHelperSelections(event, helper)
+					event.deferEdit().queue_()
+				}
+				else -> {
+					event.reply_("Unknown interaction, Warren broke something.").queue_()
+				}
+			}
 		} else {
-			event.reply_("You do not have a request to cancel.").queue_()
+			event.reply_("You are not currently helping with Diablo Clones.").queue_()
 		}
 	}
 	
-	fun scammed(event: ComponentInteraction) {
-		if (done.containsKey(event.user.id)) {
-			val info = done[event.user.id]!!
-			val g = guild.jda()
-			val requester = g.getMemberById(info.requesterId)!!
-			val helper = g.getMemberById(info.helperId)!!
-			event.deferReply().queue_()
-			guild.privateChannelManager.createPrivateChannel(requester, listOf(helper), "his Annihilus was stolen by ${helper.asMention}", true) {
-				event.reply_("A scam report has been made for you, please explain what happened in ${it.asMention}.").queue_()
-				helper.dm("A scam report has been made against you, please explain what happened in ${it.asMention}.")
+	fun onStringSelectInteractionHelpee(event: StringSelectInteractionEvent) {
+		val member = event.member!!
+		val idMember = member.id
+		val helpee = valuesById[idMember]
+		if (helpee is HelpeeCloneValues) {
+			val data = helpee.data
+			if (data.selections == null) {
+				data.selections = CloneDataHelpeeSelection()
 			}
-			
+			val selections = data.selections!!
+			when (event.customId) {
+				ID_STRING_SELECT_HELPEE_SELECT_PLATFORM -> {
+					selections.platform = Platform.valueOf(event.selectedOptions[0].value)
+					saveData(data)
+					tryFinishHelpeeSelections(event, helpee)
+				}
+				ID_STRING_SELECT_HELPEE_SELECT_SERVER -> {
+					selections.server = Server.valueOf(event.selectedOptions[0].value)
+					saveData(data)
+					tryFinishHelpeeSelections(event, helpee)
+				}
+				ID_STRING_SELECT_HELPEE_SELECT_MODE -> {
+					selections.mode = Mode.valueOf(event.selectedOptions[0].value)
+					saveData(data)
+					tryFinishHelpeeSelections(event, helpee)
+				}
+				ID_STRING_SELECT_HELPEE_SELECT_CORE -> {
+					selections.core = Core.valueOf(event.selectedOptions[0].value)
+					saveData(data)
+					tryFinishHelpeeSelections(event, helpee)
+				}
+				ID_STRING_SELECT_HELPEE_SELECT_TYPE -> {
+					selections.type = LadderType.valueOf(event.selectedOptions[0].value)
+					saveData(data)
+					tryFinishHelpeeSelections(event, helpee)
+				}
+				else -> {
+					event.reply_("Unknown interaction, Warren broke something.").queue_()
+				}
+			}
 		} else {
-			event.reply_("You have not been helped to have been scammed.").queue_()
+			event.reply_("You do not have a pending request.").queue_()
 		}
 	}
 	
-	fun vouch(event: ComponentInteraction) {
-		event.reply_("was lazy").queue_()
-	}
-	
-	fun onStringSelectSelection(event: StringSelectInteractionEvent): InteractionRelation {
-		val relation = isInteractionRelated(event)
-		if (relation == InteractionRelation.RELATED) {
-			when (event.componentId) {
-				"clone:${guild.id}:helper-error" -> handleHelperError(event)
-			}
-		}
-		return relation
-	}
-	
-	fun onModalSubmit(event: ModalInteractionEvent): InteractionRelation {
-		val relation = isInteractionRelated(event)
-		println("relation=${relation.name}, id=${event.modalId}")
-		if (relation == InteractionRelation.RELATED) {
-			println("modal received")
-			when (event.modalId) {
-				"clone:${guild.id}:request" -> submitModal(event)
-			}
-		}
-		return relation
-	}
-	
-	private fun handleHelperError(event: StringSelectInteractionEvent) {
-		val helpInfo = helpers[event.user.id]!!
-		when (event.selectedOptions[0].value) {
-			"afk-kill" -> handleAFK(event)
-			"afk-nokill" -> failedHelp(event, "you were AFK. The helper says they did not kill Diablo Clone")
-			"alr-done" -> failedHelp(event, "the game was empty or Diablo Clone was already dead")
-			"game-dne" -> failedHelp(event, "the game does not exist, please check the game name")
-			"game-lr" -> failedHelp(event, "the helper does not meet the level requirements. You will have to look for someone who does")
-			"game-pc" -> failedHelp(event, "the game is full. If there are players in the game, please ask one of them to leave. If you are alone, you are out of luck")
-			//"other" -> doOther(event)
-		}
-	}
-	
-	private fun handleAFK(event: StringSelectInteractionEvent) {
-		val info = helpers[event.user.id]!!
-		val g = guild.jda()
-		val helper = g.getMemberById(event.user.id)!!
-		val requester = g.getMemberById(info.requesterId)!!
-		event.deferReply().queue_()
-		completedHelp(event)
-		guild.privateChannelManager.createPrivateChannel(helper, listOf(requester), "${requester.asMention} was AFK so ${helper.asMention} is holding the Annihilus.", false) {
-			event.reply_("${it.asMention} was created in the server to establish communication between you and ${requester.asMention}.").queue_()
-			requester.dm("You were AFK so ${helper.asMention} is holding the Annihilus. They will not identify it. Please contact them in ${it.asMention}.")
-		}
-	}
-	
-	private fun rejoinQueue(helpInfo: CloneInfo) {
-		val position = (helpInfo.position - helped).coerceAtLeast(0)
-		queue.add(position, helpInfo)
-		//updateMessages()
-	}
-	
-	fun doHelping(event: ButtonInteractionEvent) {
-		if (helpers.containsKey(event.user.id)) {
-			event.reply_("You are already helping someone. Check your direct messages.").queue_()
+	init {
+		if (guild.data.cloneData != null) {
+			data = guild.data.cloneData!!
 		} else {
-			synchronized(queue) {
-				if (queue.isEmpty()) {
-					updateMessages()
-					event.reply_("Queue is empty.").queue_()
+			data = CloneData()
+			guild.data.cloneData = data
+		}
+		messagePinHelpee = auriel.specialMessageHandler.sendPinMessage(2, channelHelpee, formatMessageHelpeeInstructions())
+		messagePinHelper = auriel.specialMessageHandler.sendPinMessage(4, channelHelper, messageHelperInstructions)
+	}
+	
+	fun tryFinishHelpeeSelections(event: StringSelectInteractionEvent, helpee: HelpeeCloneValues) {
+		if (helpee.data.selections != null) {
+			val selections = helpee.data.selections!!
+			if (selections.hasSelectedAll()) {
+				if (selections.platform!! == Platform.PC && selections.server!! == Server.NOT_APPLICABLE) {
+					event.reply_("PC players must specify a server!").queue_()
 				} else {
-					val helpInfo = queue.removeAt(0)
-					if (helperDMs.containsKey(event.user.id)) {
-						editHelperMessage(helperDMs[event.user.id]!!, event.user, event.guild!!, helpInfo)
-					} else {
-						event.deferReply(true).queue_ { reply ->
-							event.member!!.dm("You are helping with Diablo Clones in **${event.guild!!.name}**.\n\nLoading..",
-								failure = { "You must allow direct messages from server members to use this feature." }) { dm ->
-								editHelperMessage(dm, event.user, event.guild!!, helpInfo)
-								reply.editOriginal("You are now helping with Diablo Clones. Check your direct messages.").queue_()
+					event.replyModal(createModalHelpeeInput(helpee)).flatMap {
+						event.message.editMessage(MessageEdit {
+							content = "You have selected your game options, now provide the remaining information in the pop-up menu found by clicking the button below."
+							useComponentsV2 = false
+							actionRow {
+								primaryButton(ID_BUTTON_HELPEE_INPUT_OPEN, "Submit Game Info")
 							}
+						})
+					}.queue_()
+				}
+			} else {
+				event.deferEdit().queue_()
+			}
+		} else {
+			event.deferEdit().queue_()
+		}
+	}
+	
+	fun tryFinishHelperSelections(event: ButtonInteractionEvent) {
+		val member = event.member!!
+		val idMember = member.id
+		val helper = valuesById[idMember]
+		if (helper is HelperCloneValues) {
+			if (helper.data.restricted) {
+				event.reply_("Restricted.").queue_()
+				return
+			}
+			if (helper.data.selections != null) {
+				val selections = helper.data.selections!!
+				if (selections.hasSelectedAll()) {
+					val queue = computeQueue(selections)
+					queue.helpers.add(idMember)
+					helper.data.queue = queue
+					val helpee = queue.pollHelpee()
+					if (helpee != null) {
+						event.editMessage("You are now helping players in the ${queue.getDisplayName()} queue.").setComponents().queue_()
+						startHelpProcess(helpee, helper)
+					} else {
+						queue.helpersWaiting.add(helper)
+						event.editMessage("The ${queue.getDisplayName()} queue is currently empty, you will be notified once you're assigned to someone that joins the queue.").setComponents().queue_()
+					}
+					queueUpdated()
+				} else {
+					event.reply_("You must select an option from each category to continue.").queue_()
+				}
+			} else {
+				event.reply_("You must select an option from each category to continue.").queue_()
+			}
+		} else {
+			event.reply_("You are not currently helping with Diablo Clones.").queue_()
+		}
+	}
+	
+	fun startHelpProcess(helpee: HelpeeCloneValues, helper: HelperCloneValues, notify: Boolean = false) {
+		/*
+		val dataHelpee = helpee.getCloneHelpeeData()
+		val dataHelper = helper.getCloneHelperData()
+		val threadHelpee = dataHelpee?.idPersonalThread.let { channelHelpee.a().privateThreadsById[it] }
+		val threadHelper = dataHelper?.idPersonalThread.let { channelHelper.a().privateThreadsById[it] }
+		val isNullDataHelpee = dataHelpee == null
+		val isNullDataHelper = dataHelper == null
+		if (isNullDataHelpee || isNullDataHelper || threadHelpee == null || threadHelper == null) {
+			if (isNullDataHelpee) {
+				auriel.warren(NullPointerException("helpeeData was null when starting the help process, ${helpee.fullMention()} is probably stuck in limbo now.").stackTraceToString())
+			} else if (threadHelpee != null) {
+				dataHelpee.queue!!.addPlayerToFront(helpee)
+				threadHelpee.send {
+					content = "An error has occured when trying to assign you to a helper. You have been placed back in the front of the queue."
+				}.queue_()
+			} else {
+				auriel.warren("${helpee.fullMention()} has helpee data but not a private thread, they're stuck in some limbo state.")
+			}
+			if (isNullDataHelper) {
+				auriel.warren(NullPointerException("helperData was null when starting the help process, ${helper.fullMention()} is probably stuck in limbo now.").stackTraceToString())
+			} else if (threadHelper != null) {
+				threadHelper.send {
+					content = "An error has occured when trying to assign you to a helpee."
+					actionRow {
+						button(ButtonStyle.SUCCESS, "clone:helper:retry-help", "Retry")
+					}
+				}.queue_()
+			} else {
+				auriel.warren("${helper.fullMention()} has helper data but not a private thread, they're stuck in some limbo state.")
+			}
+			return
+		}
+		*/
+		val request = CloneRequest(helpee, helper)
+		helpee.request = request
+		helper.request = request
+		helpee.thread.send {
+			content = "**${helper.member.effectiveName}** has been assigned as your helper. They should join your game shortly. They will enter this channel and message you if there is a problem."
+		}.queue_()
+		var actionChain: RestAction<out Any> = helper.thread.sendMessage(formatMessageHelperGameInfo(request))
+		if (notify) actionChain = actionChain.flatMap { helper.thread.sendMessage(helper.member.asMention) }
+		actionChain.queue_()
+	}
+	
+	fun createModalHelpeeInput(helpee: HelpeeCloneValues): Modal {
+		val inputs = helpee.data.inputs
+		return Modal.create(ID_MODAL_HELPEE_INPUT, "Game Information")
+			.addComponents(
+				TextDisplay.of(
+					" - Quick Play game names and game passwords can be revealed in the Party Screen (P) by pressing the eye.\n" +
+							" - For Quick Play games, the game name is the same as the password in the case sensitivity of **Game####..**"
+				),
+				Label.of(
+					"Game Name",
+					"The name of the game.",
+					TextInput("gameName", TextInputStyle.SHORT) {
+						placeholder = "Enter your game name"
+						required = true
+						inputs?.gameName?.let { if (it.isNotBlank()) value = it }
+					}
+				),
+				Label.of(
+					"Password",
+					"The password of the game. Press the eye on the Party Screen (P) to reveal it.",
+					TextInput("password", TextInputStyle.SHORT) {
+						placeholder = "Write game password, or nothing if public"
+						required = false
+						inputs?.password?.let { if (it.isNotBlank()) value = it }
+					}
+				),
+				Label.of(
+					"Spawn Location",
+					"Where did Diablo Clone spawn if he has already been spawned?",
+					TextInput("location", TextInputStyle.SHORT) {
+						placeholder = "Write area or superunique, or nothing if not spawned"
+						required = false
+						inputs?.location?.let { if (it.isNotBlank()) value = it }
+					}
+				),
+				Label.of(
+					"Furthest Act",
+					"The furthest act you can travel to in Hell.",
+					dev.minn.jda.ktx.interactions.components.StringSelectMenu("act") {
+						option("Act 1", "Act 1")
+						option("Act 2", "Act 2")
+						option("Act 3", "Act 3")
+						option("Act 4", "Act 4")
+						option("Act 5", "Act 5")
+						require(true)
+						setRequiredRange(1, 1)
+						inputs?.furthestAct?.let { if (it.isNotBlank()) setDefaultValues(it) }
+					}
+				)
+			).build()
+	}
+	
+	fun stop() {
+		messagePinHelpee?.let {
+			it.delete()
+			messagePinHelpee = null
+		}
+		messagePinHelper?.let {
+			it.delete()
+			messagePinHelper = null
+		}
+		guild.data.cloneData = null
+		guild.saveData()
+		helpeeDataCollection.drop()
+		if (valuesById.isNotEmpty()) {
+			RestAction.allOf(valuesById.values.map {
+				if (it is HelperCloneValues) {
+					val data = it.data
+					data.restricted = false
+					data.idPersonalThread = null
+					it.member.a().saveData()
+				}
+				it.thread.delete()
+			}).queue_()
+		}
+		channelHelpee.let {
+			val privateThreadsById = it.a().privateThreadsById
+			if (privateThreadsById.isNotEmpty()) {
+				privateThreadsById.clear()
+			}
+		}
+		channelHelper.let {
+			val privateThreadsById = it.a().privateThreadsById
+			if (privateThreadsById.isNotEmpty()) {
+				privateThreadsById.clear()
+			}
+		}
+		valuesById.clear()
+	}
+	
+	private fun createHelpeeData(member: Member, thread: ThreadChannel): CloneDataHelpee {
+		val helpeeData = CloneDataHelpee(member.id, thread.id)
+		helpeeDataById[member.id] = helpeeData
+		saveData(helpeeData)
+		return helpeeData
+	}
+	
+	private fun deleteHelpeeData(member: Member) {
+		if (helpeeDataById.containsKey(member.id)) {
+			val helpeeData = helpeeDataById.remove(member.id)!!
+			removeData(helpeeData)
+		}
+	}
+	
+	fun beginHelping(event: ButtonInteractionEvent) {
+		val member = event.member!!
+		val userA = member.a()
+		val helperData = userA.data.computeCloneData()
+		val helper = valuesById[member.id]
+		if (helper != null) {
+			if (helper is HelperCloneValues) {
+				if (helper.data.restricted) {
+					event.reply_("Restricted.").queue_()
+					return
+				}
+				event.deferReply(true).submit().thenCompose { hook ->
+					val thread = helper.thread
+					thread.addThreadMember(member).submit().thenCompose {
+						hook.editOriginal(MessageEdit {
+							content = "Click the button below to go to ${thread.asMention}, your private thread, to start helping others."
+							useComponentsV2 = false
+							actionRow {
+								linkButton("https://discord.com/channels/${thread.guild.id}/${thread.id}", "Go to Private Thread")
+							}
+						}).submit()
+					}
+				}
+			} else {
+				event.reply_("Cannot help while being helped.").queue_()
+			}
+		} else {
+			event.deferReply(true).flatMap { hook ->
+				event.channel.asTextChannel().createPersonalThread(member).flatMap { thread ->
+					val values = HelperCloneValues(member, helperData, thread)
+					valuesById[member.id] = values
+					helperData.idPersonalThread = thread.id
+					thread.send {
+						content = "To begin, select the category information for the category you want to help with. If the values are already filled with what you want, then re-select one of the " +
+								"options to force an update."
+						useComponentsV2 = false
+						actionRow {
+							stringSelectMenu(ID_STRING_SELECT_HELPER_SELECT_PLATFORM) {
+								placeholder = "Select your platform"
+								setRequiredRange(1, 1)
+								Platform.entries.forEach {
+									option(it.display, it.name)
+								}
+								helperData.selections?.platform?.let { setDefaultValues(it.name) }
+							}
+						}
+						actionRow {
+							stringSelectMenu(ID_STRING_SELECT_HELPER_SELECT_MODE) {
+								placeholder = "Select your game mode"
+								setRequiredRange(1, 1)
+								Mode.entries.filter { it.hasClone }.forEach {
+									option(it.display, it.name)
+								}
+								helperData.selections?.mode?.let { setDefaultValues(it.name) }
+							}
+						}
+						actionRow {
+							stringSelectMenu(ID_STRING_SELECT_HELPER_SELECT_CORE) {
+								placeholder = "Select your core"
+								setRequiredRange(1, 1)
+								Core.entries.forEach {
+									option(it.display, it.name)
+								}
+								helperData.selections?.core?.let { setDefaultValues(it.name) }
+							}
+						}
+						actionRow {
+							stringSelectMenu(ID_STRING_SELECT_HELPER_SELECT_TYPE) {
+								placeholder = "Select your ladder type"
+								setRequiredRange(1, 1)
+								LadderType.entries.forEach {
+									option(it.display, it.name)
+								}
+								helperData.selections?.type?.let { setDefaultValues(it.name) }
+							}
+						}
+						actionRow {
+							primaryButton(ID_BUTTON_HELPER_SUBMIT, "Submit")
+						}
+					}.flatMap {
+						hook.editOriginal(MessageEdit {
+							content = "To start helping others, head to ${thread.asMention}, your private thread."
+							useComponentsV2 = false
+							actionRow {
+								linkButton("https://discord.com/channels/${thread.guild.id}/${thread.id}", "Go to Private Thread")
+							}
+						})
+					}
+				}
+			}.queue_()
+		}
+	}
+	
+	fun stopHelping(event: ButtonInteractionEvent) {
+		val member = event.member!!
+		val helper = valuesById[member.id]
+		if (helper is HelperCloneValues) {
+			if (helper.data.restricted) {
+				event.reply_("Restricted.").queue_()
+				return
+			}
+			val idMember = helper.member.id
+			if (event.channel.asGuildMessageChannel() == channelHelper) {
+				event.deferReply(true)
+					.submit()
+					.thenAccept { hook ->
+						event.channel.asTextChannel().deletePersonalThread(helper.member).thenAccept { hook.editOriginal("You are no longer helping others.").submit() }
+					}
+			} else {
+				event.reply_("You will be withdrawn from helping others momentarily...")
+					.submit()
+					.thenComposeAsync(
+						{ event.channel.asThreadChannel().parentChannel.asTextChannel().deletePersonalThread(helper.member) },
+						CompletableFuture.delayedExecutor(3, TimeUnit.SECONDS)
+					)
+			}
+			helper.data.idPersonalThread = null
+			helper.data.queue?.let {
+				it.helpers.remove(idMember)
+				it.helpersWaiting.remove(helper)
+				//print("Queue updated when helper stopped helping")
+				queueUpdated()
+				helper.data.queue = null
+			}
+			helper.deleted = true
+			valuesById.remove(idMember)
+			if (helper.request != null) {
+				val request = helper.request!!
+				helper.request = null
+				val helpee = request.helpee
+				helpee.thread.removeThreadMember(helper.member).queue_()
+				requeue(helpee)
+			}
+			helper.member.a().saveData()
+		} else {
+			event.reply_("You do not have a pending request.").queue_()
+		}
+	}
+	
+	fun makeRequest(event: ButtonInteractionEvent) {
+		val member = event.member!!
+		val idMember = member.id
+		val helpee = valuesById[idMember]
+		if (helpee is HelpeeCloneValues) {
+			val thread = helpee.thread
+			event.deferReply(true).submit().thenCompose { hook ->
+				thread.addThreadMember(member).submit().thenCompose {
+					hook.editOriginal(MessageEdit {
+						content = "Click the button below to go to ${thread.asMention}, your private thread, to submit your help request."
+						useComponentsV2 = false
+						actionRow {
+							linkButton("https://discord.com/channels/${thread.guild.id}/${thread.id}", "Go to Private Thread")
+						}
+					}).submit()
+				}
+			}.errorToWarren()
+		} else {
+			event.deferReply(true).flatMap { hook ->
+				event.channel.asTextChannel().createPersonalThread(member).flatMap { thread ->
+					val dataHelpee = createHelpeeData(member, thread)
+					val helpee = HelpeeCloneValues(member, dataHelpee, thread)
+					valuesById[idMember] = helpee
+					thread.send {
+						content = "To begin, select the value that pertains to you for each option. A menu will pop up after you have filled out the form.\n" +
+								"If the bot does not respond in time, just select it again until it sticks."
+						useComponentsV2 = false
+						actionRow {
+							stringSelectMenu(ID_STRING_SELECT_HELPEE_SELECT_PLATFORM) {
+								placeholder = "Select your platform"
+								setRequiredRange(1, 1)
+								Platform.entries.forEach {
+									option(it.display, it.name)
+								}
+							}
+						}
+						actionRow {
+							stringSelectMenu(ID_STRING_SELECT_HELPEE_SELECT_SERVER) {
+								placeholder = "Select your server"
+								setRequiredRange(1, 1)
+								Server.entries.forEach {
+									option(it.display, it.name)
+								}
+							}
+						}
+						actionRow {
+							stringSelectMenu(ID_STRING_SELECT_HELPEE_SELECT_MODE) {
+								placeholder = "Select your game mode"
+								setRequiredRange(1, 1)
+								Mode.entries.filter { it.hasClone }.forEach {
+									option(it.display, it.name)
+								}
+							}
+						}
+						actionRow {
+							stringSelectMenu(ID_STRING_SELECT_HELPEE_SELECT_CORE) {
+								placeholder = "Select your core"
+								setRequiredRange(1, 1)
+								Core.entries.forEach {
+									option(it.display, it.name)
+								}
+							}
+						}
+						actionRow {
+							stringSelectMenu(ID_STRING_SELECT_HELPEE_SELECT_TYPE) {
+								placeholder = "Select your ladder type"
+								setRequiredRange(1, 1)
+								LadderType.entries.forEach {
+									option(it.display, it.name)
+								}
+							}
+						}
+					}.flatMap {
+						hook.editOriginal(MessageEdit {
+							content = "To submit your request, head to ${thread.asMention}, your private thread."
+							useComponentsV2 = false
+							actionRow {
+								linkButton("https://discord.com/channels/${thread.guild.id}/${thread.id}", "Go to Private Thread")
+							}
+						})
+					}
+				}
+			}.queue_()
+		}
+		
+	}
+	
+	fun computeQueue(selections: CloneDataSelection): CloneQueue {
+		val id = selections.getUniqueIdentifier()
+		return if (queuesById.containsKey(id)) {
+			queuesById[id]!!
+		} else {
+			val queue = CloneQueue(selections.platform!!, selections.mode!!, selections.core!!, selections.type!!)
+			queuesById[id] = queue
+			queues.addLast(queue)
+			queue
+		}
+	}
+	
+	fun submitRequest(event: ModalInteractionEvent) {
+		val member = event.member!!
+		val idMember = member.id
+		val helpee = valuesById[idMember]!! as HelpeeCloneValues
+		val gameName = event.getValue("gameName")!!.asString
+		val password = event.getValue("password")?.asString?.let { it.ifEmpty { null } }
+		val location = event.getValue("location")?.asString?.let { it.ifBlank { null } }
+		val furthestAct = event.getValue("act")!!.asStringList[0]
+		if (helpee.data.inputs == null) helpee.data.inputs = CloneDataHelpeeInput()
+		val inputs = helpee.data.inputs!!
+		inputs.gameName = gameName
+		inputs.password = password
+		inputs.location = location
+		inputs.furthestAct = furthestAct
+		saveData(helpee.data)
+		if (helpee.request != null) {
+			event.reply_("You already have a helper assigned, so it is too late to update the information.").queue_()
+			return
+		} else if (helpee.data.queue == null) {
+			val selections = helpee.data.selections!!
+			val queue = computeQueue(selections)
+			var helper: HelperCloneValues? = null
+			synchronized(queue.helpersWaiting) {
+				if (queue.helpersWaiting.isNotEmpty()) {
+					helper = queue.pollRandomWaitingHelper()!!
+				}
+			}
+			if (helper != null) {
+				event.editMessage(MessageEditData.fromCreateData(formatMessageHelpeeGameInfo(helpee))).queue_()
+				startHelpProcess(helpee, helper, true)
+				return
+			} else {
+				queue.addHelpee(helpee)
+				queueUpdated()
+			}
+		}
+		event.editMessage(MessageEditData.fromCreateData(formatMessageHelpeeGameInfo(helpee))).queue_()
+	}
+	
+	private fun queueUpdated() {
+		queues.sortByDescending { it.getTotalSize() }
+		val current = System.currentTimeMillis()
+		if (current - lastHelpeeMessageUpdate > (5 * 1000L)) {
+			lastHelpeeMessageUpdate = current
+			updateHelpeeMessage()
+		}
+	}
+	
+	private fun updateHelpeeMessage() {
+		messagePinHelpee?.editContent(formatMessageHelpeeInstructions())
+	}
+	
+	private fun formatMessage(message: MessageCreateData, variables: Map<String, String>): MessageCreateData {
+		val builder = MessageCreateBuilder.from(message)
+		val components = builder.components.map { it as MessageTopLevelComponent }.toMutableList()
+		var changedComponents = false
+		for ((index, component) in components.withIndex()) {
+			if (component.type == Component.Type.CONTAINER) {
+				val container = component as Container
+				val children = container.components.map { it as ContainerChildComponent }.toMutableList()
+				var changedChild = false
+				for ((indexChild, child) in children.withIndex()) {
+					if (child.type == Component.Type.TEXT_DISPLAY) {
+						val textDisplay = child as TextDisplay
+						val contentOld = textDisplay.content
+						var contentNew = contentOld
+						variables.forEach { (variable, value) ->
+							contentNew = contentNew.replace("{${variable}}", value)
+						}
+						if (contentNew != contentOld) {
+							children[indexChild] = textDisplay.withContent(contentNew)
+							changedChild = true
+						}
+					} else if (child.type == Component.Type.ACTION_ROW) {
+						val actionRow = child as ActionRow
+						val componentsRow = actionRow.components.map { it as ActionRowChildComponent }.toMutableList()
+						var changedComponentsRow = false
+						for ((indexRow, component) in componentsRow.withIndex()) {
+							if (component.type == Component.Type.BUTTON) {
+								val button = component as Button
+								if (button.style == ButtonStyle.LINK) {
+									val contentOld = button.url!!
+									var contentNew = contentOld
+									variables.forEach { (variable, value) ->
+										contentNew = contentNew.replace("{${variable}}", value)
+									}
+									if (contentNew != contentOld) {
+										componentsRow[indexRow] = button.withUrl(contentNew)
+										changedComponentsRow = true
+									}
+								}
+							}
+						}
+						if (changedComponentsRow) {
+							children[indexChild] = actionRow.withComponents(componentsRow)
+							changedChild = true
 						}
 					}
 				}
-			}
-			
-		}
-	}
-	
-	fun helpNext(event: ButtonInteractionEvent) {
-		if (helpers.containsKey(event.user.id)) {
-			synchronized(queue) {
-				if (queue.isEmpty()) {
-					updateMessages()
-					event.reply_("Queue is empty.").queue_()
-				} else {
-					editHelperMessage(helperDMs[event.user.id]!!, event.user, event.guild!!, queue.removeAt(0))
+				if (changedChild) {
+					components[index] = container.withComponents(children)
+					changedComponents = true
+				}
+			} else if (component.type == Component.Type.TEXT_DISPLAY) {
+				val textDisplay = component as TextDisplay
+				val contentOld = textDisplay.content
+				var contentNew = contentOld
+				variables.forEach { (variable, value) ->
+					contentNew = contentNew.replace("{${variable}}", value)
+				}
+				if (contentNew != contentOld) {
+					components[index] = textDisplay.withContent(contentNew)
+					changedComponents = true
 				}
 			}
+		}
+		if (changedComponents) {
+			builder.setComponents(components)
+			return builder.build()
+		}
+		return message
+	}
+	
+	private fun formatMessageHelpeeInstructions(): MessageCreateData {
+		val queueList = if (queues.isNotEmpty()) queues.joinToString("\n") { it.getDisplayString() } else "Empty"
+		val variables = mapOf(Pair("queueList", queueList))
+		return formatMessage(messageHelpeeInstructions, variables)
+	}
+	
+	private fun formatMessageHelpeeGameInfo(helpee: HelpeeCloneValues): MessageCreateData {
+		val data = helpee.data
+		val inputs = data.inputs
+		val variables = mapOf(
+			Pair("queueName", data.queue?.getDisplayName() ?: "Unknown"),
+			Pair("position", data.position?.toString() ?: "Unknown"),
+			Pair("gameName", inputs?.gameName ?: "Unknown"),
+			Pair("password", inputs?.password ?: "Public game/no password provided"),
+			Pair("location", inputs?.location ?: "Not spawned/no location provided"),
+			Pair("furthestAct", inputs?.furthestAct ?: "Unknown"),
+			Pair("helpeeChannel", channelHelpee.asMention)
+		)
+		return formatMessage(messageHelpeeGameInfo, variables)
+	}
+	
+	private fun formatMessageHelperGameInfo(request: CloneRequest): MessageCreateData {
+		val helpee = request.helpee
+		//val helper = request.helper
+		val data = helpee.data
+		val inputs = data.inputs
+		val variables = mapOf(
+			Pair("gameName", inputs?.gameName ?: "Unknown"),
+			Pair("password", inputs?.password ?: "Public game/no password provided"),
+			Pair("server", data.selections?.server?.display ?: "Unknown"),
+			Pair("location", inputs?.location ?: "Not spawned/no location provided"),
+			Pair("furthestAct", inputs?.furthestAct ?: "Unknown"),
+			Pair("helpeeName", helpee.member.effectiveName),
+			//Pair("url", "https://discord.com/channels/${thread.guild.id}/${thread.id}")
+		)
+		val message = formatMessage(messageHelperGameInfo, variables)
+		return message
+	}
+	
+	fun cancelRequest(event: ButtonInteractionEvent) {
+		val member = event.member!!
+		val idMember = member.id
+		val helpee = valuesById[idMember]
+		if (helpee is HelpeeCloneValues) {
+			helpee.data.queue?.let {
+				it.removeHelpee(helpee)
+				queueUpdated()
+			}
+			if (event.channel.asGuildMessageChannel() == channelHelpee) {
+				event.deferReply(true)
+					.submit()
+					.thenAccept { hook ->
+						event.channel.asTextChannel().deletePersonalThread(member).thenAccept { hook.editOriginal("Your request has been cancelled.").submit() }
+					}
+			} else {
+				event.reply_("Your request will be deleted momentarily...")
+					.submit()
+					.thenComposeAsync(
+						{ event.channel.asThreadChannel().parentChannel.asTextChannel().deletePersonalThread(member) },
+						CompletableFuture.delayedExecutor(3, TimeUnit.SECONDS)
+					)
+			}
+			deleteHelpeeData(member)
+			valuesById.remove(idMember)
+			helpee.deleted = true
+			if (helpee.request != null) {
+				val request = helpee.request!!
+				helpee.request = null
+				val helper = request.helper
+				helpNext(helper)
+			}
 		} else {
-			event.reply_("You are not helping anyone. Use the button in the Discord to start helping.").queue_()
+			event.reply_("You do not have a pending request.").queue_()
 		}
+		
 	}
 	
-	private fun editHelperMessage(dm: Message, helper: User, guild: Guild, helpInfo: CloneInfo?) {
-		if (helpInfo == null) {
-			dm.edit("You are helping with Diablo Clones in **${guild.name}**.\n\n**Queue is empty.**").queue_()
-		} else {
-			val requester = guild.getMemberById(helpInfo.requesterId)!!
-			dm.edit("You are helping with Diablo Clones in **${guild.name}**.\n\n" +
-					"__Player__: ${requester.asMention} `${requester.fullMention()}`\n" +
-					"__Game Name__: `${helpInfo.gameName}`\n" +
-					"__Game Password__: `${helpInfo.password}`\n" +
-					"__Spawned__: `${helpInfo.spawned}`\n" +
-					"__Other Info__: `${helpInfo.otherInfo}`",
-				components = helperMessageButtons
-			).queue_() // TODO buttons
-			helpers[helper.id] = helpInfo
-			requester.dm("**${helper.fullMention()}** is on the way to slay your Diablo Clone!")
-			helped++
-			if (helped <= 5 || helped % 5 == 0) updateMessages()
-		}
-	}
+	fun hasHelpeeData(id: String) = helpeeDataById.containsKey(id)
 	
-	private fun updateMessages() {
-		helpeeMessage?.editContent(guild.data.getAsString("clone:helpee-message")!!.replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()))
-		helperMessage?.editContent(guild.data.getAsString("clone:helper-message")!!.replace("%POSITION%", helped.toString()).replace("%REMAINING%", queue.size.toString()))
-	}
-	
-	fun failedHelp(event: ComponentInteraction, reason: String) {
-		val info = helpers.remove(event.user.id)!!
-		helpees.remove(info.requesterId)
-		val requester = event.guild!!.getMemberById(info.requesterId)!!
-		requester.dm("**${event.user.fullMention()}** was unable to help you because $reason. You have been removed from the queue. Feel free to rejoin it if you are able to fix the issue.")
-		event.reply_("You have failed to help **${requester.fullMention()}**. Please try again later.").queue_()
-		//rejoinQueue(info)
-	}
-	
-	fun completedHelp(event: ComponentInteraction, increment: Boolean = true) {
-		val previous = helpers.remove(event.user.id)!!
-		helpees.remove(previous.requesterId)
-		val requester = event.guild!!.getMemberById(previous.requesterId)!!
-		requester.dm("**${event.user.fullMention()}** has concluded helping you. If you would like to show appreciation to your helper," +
-				" give them a vouch using the `/vouch` command in the server! (Not here)")
-		val helperUser = event.member!!.a()
-		val cloneKills = helperUser.data.incrementInt("cloneKills")
-		event.reply_("You have finished helping **${requester.fullMention()}**. You have completed a total of $cloneKills Clones.").queue_()
-		helperUser.saveData()
-	}
-	
-	fun cancelHelp(event: ButtonInteractionEvent) {
-		val info = helpees.remove(event.user.id)
-		if (info == null) {
-			event.reply_("You are not queued for help.").queue_()
-		} else {
-			queue.remove(info)
-			event.reply_("You are no longer in the queue to receive help.").queue_()
-		}
-	}
-	
-	fun submitModal(event: ModalInteractionEvent) {
-		val userId = event.user.id
-		val isEdit = helpees.containsKey(userId)
-		val gameName = event.getValue("game-name")!!.asString
-		val password = event.getValue("game-password")!!.asString
-		val spawned = event.getValue("game-spawn")!!.asString
-		val furthestAct = event.getValue("game-act")!!.asString
-		val otherInfo = event.getValue("game-other")?.asString
-		val info = if (isEdit) helpees[userId]!! else {
-			if (otherInfo.isNullOrEmpty()) CloneInfo(userId, helped + queue.size + 1, "", gameName, password, spawned, furthestAct)
-			else CloneInfo(userId, helped + queue.size + 1, "", gameName, password, spawned, furthestAct, otherInfo)
-		}
-		if (!isEdit) {
-			helpees[userId] = info
-			queue.add(info)
-		} else {
-			info.gameName = gameName
-			info.password = password
-			info.spawned = spawned
-			info.furthestAct = furthestAct
-			info.otherInfo = otherInfo ?: "None"
-			rejoinQueue(info)
-		}
-		if (System.currentTimeMillis() - lastQueueUpdate > 1000L) {
-			updateMessages()
-			lastQueueUpdate = System.currentTimeMillis()
-		}
-		if (isEdit) {
-			event.reply_("Your request has been updated successfully.").queue_()
-		} else {
-			event.reply_("Your request has been submitted successfully.").queue_()
-			event.member!!.dm("You are position #**${queue.size + helped}** in the queue to receive help.\n" +
-					"Please be patient as there may be a lot of people waiting.")
-		}
-		println("modal received 1")
-	}
-	
-	fun isRunning() = running
+	fun getHelpeeData(id: String) = helpeeDataById[id]!!
 	
 }
