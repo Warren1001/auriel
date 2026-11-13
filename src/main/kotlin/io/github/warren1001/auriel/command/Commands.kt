@@ -14,6 +14,7 @@ import io.github.warren1001.auriel.queue_
 import io.github.warren1001.auriel.replyFull
 import io.github.warren1001.d2data.file.D2Lang
 import net.dv8tion.jda.api.EmbedBuilder
+import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.components.actionrow.ActionRow
 import net.dv8tion.jda.api.components.buttons.Button
 import net.dv8tion.jda.api.entities.Member
@@ -254,17 +255,22 @@ class Commands(private val auriel: Auriel) {
 					it.reply_("No Diablo clone system is currently running.").queue_()
 				}
 			} else if (it.subcommandName == "permit" || it.subcommandName == "release") {
-				if (guild.cloneHandler != null) {
-					val cloneHandler = guild.cloneHandler!!
-					val member = it.getOption("member")!!.asMember!!
-					if (cloneHandler.unrestrict(member)) {
-						it.reply_("${member.effectiveName} is no longer restricted.").queue_()
+				if (it.member!!.hasPermission(Permission.BAN_MEMBERS)) {
+					if (guild.cloneHandler != null) {
+						val cloneHandler = guild.cloneHandler!!
+						val member = it.getOption("member")!!.asMember!!
+						if (cloneHandler.unrestrict(member)) {
+							it.reply_("${member.effectiveName} is no longer restricted.").queue_()
+						} else {
+							it.reply_("Unable to unrestrict ${member.effectiveName} or they are not restricted.").queue_()
+						}
 					} else {
-						it.reply_("Unable to unrestrict ${member.effectiveName} or they are not restricted.").queue_()
+						it.reply_("No Diablo clone system is currently running.").queue_()
 					}
 				} else {
-					it.reply_("No Diablo clone system is currently running.").queue_()
+					it.reply_("Only moderators can use that subcommand.").queue_()
 				}
+				
 			}
 		}
 		commandActions["pin"] = {
