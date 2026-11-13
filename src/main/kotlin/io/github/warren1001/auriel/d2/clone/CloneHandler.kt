@@ -899,11 +899,11 @@ class CloneHandler(
 	
 	fun stop() {
 		messagePinHelpee?.let {
-			it.delete()
+			auriel.specialMessageHandler.deletePinMessage(it)
 			messagePinHelpee = null
 		}
 		messagePinHelper?.let {
-			it.delete()
+			auriel.specialMessageHandler.deletePinMessage(it)
 			messagePinHelper = null
 		}
 		guild.data.cloneData = null
