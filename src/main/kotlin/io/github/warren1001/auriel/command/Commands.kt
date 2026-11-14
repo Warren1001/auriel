@@ -135,6 +135,14 @@ class Commands(private val auriel: Auriel) {
 			//val msg = it.getOption("message", "%ROLE% **%ZONE%** is/are Terrorized!") { it.asString }
 			if (it.subcommandName == "start") {
 				it.guild!!.a().startTZ(it)
+			} else if (it.subcommandName == "toggle") {
+				val tzTracker = auriel.guilds.tzTracker
+				tzTracker.enabled = !tzTracker.enabled
+				if (tzTracker.enabled) {
+					it.reply_("Terror Zone tracker is enabled, give it up to 5 minutes to update.").queue_()
+				} else {
+					it.reply_("Terror Zone tracker is disabled.").queue_()
+				}
 			} else {
 				//println("${auriel.guilds.tzTracker.tzInfos}")
 				val lang = it.guild!!.a().data.getAsString("guild:tz-language")!!
@@ -346,6 +354,7 @@ class Commands(private val auriel: Auriel) {
 				restrict(true)
 				subcommand("configure", "Configure the TZ role notifications.")
 				subcommand("start", "Start the TZ announcer.")
+				subcommand("toggle", "Toggle the TZ announcer.")
 			}
 			slash("tzrolebutton", "Choose the areas you want to be notified for.") {
 				restrict(true)

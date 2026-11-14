@@ -33,6 +33,8 @@ class TerrorZoneTracker(private val guilds: Guilds, val data: TerrorZoneTrackerD
 	private var attempt = 0
 	private var sameNotified = false
 	
+	var enabled = true
+	
 	init {
 		val tz = D2.files.loadJson(D2DesecratedZones.FILE_PATH)
 		val levels = D2.files.loadSheet(D2Levels.FILE_PATH)
@@ -100,53 +102,23 @@ class TerrorZoneTracker(private val guilds: Guilds, val data: TerrorZoneTrackerD
 				.build()
 			running = true
 			while (running) {
-				try {
-					val doc = client.send(request, HttpResponse.BodyHandlers.ofString())
-					val text = doc.body()
+				if (enabled) {
 					try {
-						val node = mapper.readTree(text)
-						if (node.has("current")) {
-							val currentZones = node["current"].elements().asSequence().map { it.asInt() }.toList()
-							val nextZones = node["next"].elements().asSequence().map { it.asInt() }.toList()
-							val nextTerrorTime = node["next_terror_time_utc"].asLong() * 1000
-							val delay = (node["delay"].asInt() + 3 + 5) * 1000
-							val nextUpdate = nextTerrorTime + delay//(node["next_available_time_utc"].asLong() + 3) * 1000
-							val currentTerrorZoneInfo = getInfoFromZoneIds(currentZones)
-							val nextTerrorZoneInfo = getInfoFromZoneIds(nextZones)
-							if (currentTerrorZoneInfo == null) {
-								attempt = 0
-								guilds.auriel.warren("Invalid current TZ info:\n$text")
-								val sleep = nextUpdate - System.currentTimeMillis()
-								if (sleep > 0) {
-									Thread.sleep(sleep)
-								} else {
-									attempt++
-								}
-								continue
-							} else if (nextTerrorZoneInfo == null) {
-								attempt = 0
-								guilds.auriel.warren("Invalid next TZ info:\n$text")
-								val sleep = nextUpdate - System.currentTimeMillis()
-								if (sleep > 0) {
-									Thread.sleep(sleep)
-								} else {
-									attempt++
-								}
-								continue
-							} else {
-								if (nextTerrorTime <= data.nextTerrorTime) {
-									if (System.currentTimeMillis() < nextUpdate) {
-										Thread.sleep(nextUpdate - System.currentTimeMillis())
-										attempt = 0
-										continue
-									} else if (!sameNotified) {
-										//guilds.auriel.warren("Automation reporting the same or old? data after expected update")
-										sameNotified = true
-									}
-								} else {
-									update(nextTerrorTime, currentTerrorZoneInfo, nextTerrorZoneInfo)
+						val doc = client.send(request, HttpResponse.BodyHandlers.ofString())
+						val text = doc.body()
+						try {
+							val node = mapper.readTree(text)
+							if (node.has("current")) {
+								val currentZones = node["current"].elements().asSequence().map { it.asInt() }.toList()
+								val nextZones = node["next"].elements().asSequence().map { it.asInt() }.toList()
+								val nextTerrorTime = node["next_terror_time_utc"].asLong() * 1000
+								val delay = (node["delay"].asInt() + 3 + 5) * 1000
+								val nextUpdate = nextTerrorTime + delay//(node["next_available_time_utc"].asLong() + 3) * 1000
+								val currentTerrorZoneInfo = getInfoFromZoneIds(currentZones)
+								val nextTerrorZoneInfo = getInfoFromZoneIds(nextZones)
+								if (currentTerrorZoneInfo == null) {
 									attempt = 0
-									sameNotified = false
+									guilds.auriel.warren("Invalid current TZ info:\n$text")
 									val sleep = nextUpdate - System.currentTimeMillis()
 									if (sleep > 0) {
 										Thread.sleep(sleep)
@@ -154,34 +126,69 @@ class TerrorZoneTracker(private val guilds: Guilds, val data: TerrorZoneTrackerD
 										attempt++
 									}
 									continue
+								} else if (nextTerrorZoneInfo == null) {
+									attempt = 0
+									guilds.auriel.warren("Invalid next TZ info:\n$text")
+									val sleep = nextUpdate - System.currentTimeMillis()
+									if (sleep > 0) {
+										Thread.sleep(sleep)
+									} else {
+										attempt++
+									}
+									continue
+								} else {
+									if (nextTerrorTime <= data.nextTerrorTime) {
+										if (System.currentTimeMillis() < nextUpdate) {
+											Thread.sleep(nextUpdate - System.currentTimeMillis())
+											attempt = 0
+											continue
+										} else if (!sameNotified) {
+											//guilds.auriel.warren("Automation reporting the same or old? data after expected update")
+											sameNotified = true
+										}
+									} else {
+										update(nextTerrorTime, currentTerrorZoneInfo, nextTerrorZoneInfo)
+										attempt = 0
+										sameNotified = false
+										val sleep = nextUpdate - System.currentTimeMillis()
+										if (sleep > 0) {
+											Thread.sleep(sleep)
+										} else {
+											attempt++
+										}
+										continue
+									}
 								}
 							}
+						} catch (_: JsonParseException) {
+							guilds.auriel.warren("Could not parse TZ:\n```\n$text\n```")
 						}
-					} catch (_: JsonParseException) {
-						guilds.auriel.warren("Could not parse TZ:\n```\n$text\n```")
-					}
-					attempt++
-					if (attempt <= 5) {
-						Thread.sleep(1000 * 5)
-					} else if (attempt <= 10) {
-						Thread.sleep(1000 * 60)
-					} else if (attempt <= 15) {
-						Thread.sleep(1000 * 60 * 5)
-					} else {
-						/*if (!automatedOffline) {
+						attempt++
+						if (attempt <= 5) {
+							Thread.sleep(1000 * 5)
+						} else if (attempt <= 10) {
+							Thread.sleep(1000 * 60)
+						} else if (attempt <= 15) {
+							Thread.sleep(1000 * 60 * 5)
+						} else {
+							/*if (!automatedOffline) {
 							automatedOffline = true
 							data.guilds.forEach {
 								guilds.getGuild(it).terrorZoneTrackerUpdate(TerrorZoneTrackerStatus.OFFLINE)
 							}
 						}*/
-						Thread.sleep(1000 * 60 * 10)
+							Thread.sleep(1000 * 60 * 10)
+						}
+					} catch (_: InterruptedException) {
+					} catch (e: Exception) {
+						guilds.auriel.warren(e.stackTraceToString())
+						try {
+							Thread.sleep(1000 * 60 * 10)
+						} catch (_: InterruptedException) {
+						}
 					}
-				} catch (_: InterruptedException) {
-				} catch (e: Exception) {
-					guilds.auriel.warren(e.stackTraceToString())
-					try {
-						Thread.sleep(1000 * 60 * 10)
-					} catch (_: InterruptedException) {}
+				} else {
+					Thread.sleep(1000 * 60 * 5)
 				}
 			}
 		}
